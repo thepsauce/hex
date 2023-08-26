@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 
 	/* test setup */
 	struct vec3 pos = { 6, 6 };
-	for(int i = 0; i < 20; i++) {
+	for (int i = 0; i < 20; i++) {
 		const enum hive_type t = 1 + rand() % (HIVE_SPECIES - 1);
 		const enum hive_side s = (1 + rand() % 2) << 4;
 		hive.grid[pos.x + pos.y * GRID_COLUMNS] = t | s;
@@ -71,11 +71,11 @@ int main(int argc, char *argv[])
 
 	hive_render(&hive, stdscr);
 
-	while(1) {
+	while (1) {
 		int c;
 
 		c = getch();
-		if(c == 'q')
+		if (c == 'q')
 			break;
 	}
 

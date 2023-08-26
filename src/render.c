@@ -1,5 +1,4 @@
 #include "hive.h"
-
 void hive_render(struct hive *hive, WINDOW *win)
 {
 	static const char *pieceNames[] = {
@@ -45,15 +44,16 @@ void hive_render(struct hive *hive, WINDOW *win)
 
 	for (pos.y = 0; pos.y < GRID_ROWS; pos.y++)
 		for (pos.x = 0; pos.x < GRID_COLUMNS; pos.x++) {
-			int species, side;
+			enum hive_type type;
+			enum hive_side side;
 			int opponent;
 
 			world.x = pos.x * 4;
 			world.y = pos.y * 2 + pos.x % 2;
 
 			piece = hive->grid[pos.x + pos.y * GRID_COLUMNS];
-			species = piece & HIVE_SPECIES_MASK;
-			if(species == HIVE_EMPTY)
+			type = piece & HIVE_SPECIES_MASK;
+			if (type == HIVE_EMPTY)
 				continue;
 			side = piece & HIVE_SIDE_MASK;
 			opponent = side ^ HIVE_SIDE_MASK;
@@ -61,7 +61,7 @@ void hive_render(struct hive *hive, WINDOW *win)
 			wattr_set(win, 0, side == HIVE_WHITE ?
 				HIVE_PAIR_WHITE : HIVE_PAIR_BLACK, NULL);
 			mvwprintw(win, world.y, world.x + 1,
-				" %s ", pieceNames[species]);
+				" %s ", pieceNames[type]);
 			mvwprintw(win, world.y + 1, world.x + 1,
 					"%s", "   ");
 
