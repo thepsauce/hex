@@ -3,8 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
-enum Species
-{
+enum species {
 	QUEEN,
 	BEETLE,
 	GRASSHOPPER,
@@ -16,8 +15,7 @@ enum Species
 	SPECIES_COUNT
 };
 
-enum Direction
-{
+enum direction {
 	SOUTH_EAST,
 	NORTH_EAST,
 	NORTH,
@@ -27,8 +25,7 @@ enum Direction
 	DIRECTION_COUNT
 };
 
-enum Piece
-{
+enum piece {
     WQ1,
     WB1,
     WB2,
@@ -60,14 +57,12 @@ enum Piece
     PIECE_COUNT
 };
 
-enum Color
-{
+enum color {
 	WHITE,
 	BLACK
 };
 
-struct Hex
-{
+struct hex {
 	int x;
 	int y;
 	int z;
@@ -79,22 +74,20 @@ struct Hex
 #define GRID_SPACES (GRID_COLUMNS * GRID_ROWS)
 
 int grid[GRID_COLUMNS * GRID_ROWS * GRID_LAYERS];
-struct Hex positions[PIECE_COUNT];
+struct hex positions[PIECE_COUNT];
 
-struct Hex offsets[2][DIRECTION_COUNT] =
-{
-    {
+struct hex offsets[2][DIRECTION_COUNT] = {
+	{
     	{+1,  0}, {+1, -1}, { 0, -1}, 
-     	{-1, -1}, {-1,  0}, { 0, +1}
-    },
+    	{-1, -1}, {-1,  0}, { 0, +1}
+   	},
     {
     	{+1, +1}, {+1,  0}, { 0, -1}, 
-     	{-1,  0}, {-1, +1}, { 0, +1}
-    },
+    	{-1,  0}, {-1, +1}, { 0, +1}
+    }
 };
 
-char letter[] =
-{
+char letter[] = {
 	'Q',
 	'B',
 	'G',
@@ -105,8 +98,7 @@ char letter[] =
 	'P'
 };
 
-int species[] =
-{
+int piece_species[] = {
     QUEEN,
     BEETLE,
     BEETLE,
@@ -137,8 +129,7 @@ int species[] =
     PILLBUG
 };
 
-int triangles[] =
-{
+int triangles[] = {
 	L'\x25E2',
 	L'\x25E3',
 	L'\x25E4',
@@ -147,42 +138,32 @@ int triangles[] =
 
 int adjacent[8][8];
 
-struct Cell
-{
+struct cell {
 	int x;
 	int y;
 };
 
 #define PARITY(n) (n % 2)
 
-void
-print()
-{
-	int i;
-	int n;
-	int j;
-	int to_direction[] =
-	{
+void print(void) {
+	int to_direction[] = {
 		NORTH_WEST,
 		NORTH_EAST,
 		SOUTH_EAST,
 		SOUTH_WEST
 	};
-	struct Cell cell_offsets[] =
-	{
+	struct cell cell_offsets[] = {
 		{0, 0},
 		{4, 0},
 		{4, 1},
 		{0, 1}
 	};
-	for (j = 0; j < GRID_ROWS; ++j)
-	{
-		for (i = 0; i < GRID_COLUMNS; ++i)
-		{
+	for (int j = 0; j < GRID_ROWS; ++j) {
+		for (int i = 0; i < GRID_COLUMNS; ++i) {
 			int parity;
 			int color;
-			struct Hex position;
-			struct Cell start_cell;
+			struct hex position;
+			struct cell start_cell;
 			int piece;
 			int opponent;
 			position.x = i;
@@ -193,8 +174,7 @@ print()
 
 			piece = grid[i + j * GRID_COLUMNS];
 
-			if (piece > PIECE_COUNT - 1)
-			{
+			if (piece > PIECE_COUNT - 1) {
 				continue;
 			}
 
@@ -202,31 +182,27 @@ print()
 			opponent = piece < BQ1 ? COLOR_BLACK : COLOR_WHITE;
 
 			attron(COLOR_PAIR(adjacent[opponent][color]));
-			mvprintw(start_cell.y, start_cell.x + 1, " %c ", letter[species[piece]]);
+			mvprintw(start_cell.y, start_cell.x + 1, " %c ", letter[piece_species[piece]]);
 			mvprintw(start_cell.y + 1, start_cell.x + 1, "%s", "   ");
 
-			for (n = 0; n < 4; ++n)
-			{
+			for (int n = 0; n < 4; ++n) {
 				int direction = to_direction[n];
 				int piece;
-				struct Hex offset = offsets[parity][direction];
-				struct Hex neighbor;
+				struct hex offset = offsets[parity][direction];
+				struct hex neighbor;
 				int neighbor_color;
-				struct Cell cell_offset;
-				struct Cell cell;
+				struct cell cell_offset;
+				struct cell cell;
 				neighbor.x = position.x + offset.x;
 				neighbor.y = position.y + offset.y;
 				piece = grid[neighbor.x + neighbor.y * GRID_COLUMNS];
-				if (piece < BQ1)
-				{
+				if (piece < BQ1) {
 					neighbor_color = COLOR_WHITE;
 				}
-				else if (piece < PIECE_COUNT)
-				{
+				else if (piece < PIECE_COUNT) {
 					neighbor_color = COLOR_BLACK;
 				}
-				else
-				{
+				else {
 					neighbor_color = COLOR_BLUE;
 				}
 
@@ -240,23 +216,18 @@ print()
 	}
 }
 
-int
-main(int argc, char *argv[])
-{
-	int i;
-	int j;
+int main(int argc, char *argv[]) {
 	int parity;
-	struct Hex position;
-	struct Hex offset;
+	struct hex position;
+	struct hex offset;
 	int direction;
-	struct Hex neighbor;
+	struct hex neighbor;
 	setlocale(LC_ALL, "");
 	initscr();
 	curs_set(FALSE);
 	keypad(stdscr, TRUE);
 	// nodelay(stdscr, TRUE);
-	for (i = 0; i < GRID_SPACES; ++i)
-	{
+	for (int i = 0; i < GRID_SPACES; ++i) {
 		grid[i] = 255;
 	}
 	position.x = 2;
@@ -271,7 +242,6 @@ main(int argc, char *argv[])
 	neighbor.x = position.x + offset.x;
 	neighbor.y = position.y + offset.y;
 
-
 	grid[position.x + position.y * GRID_COLUMNS] = BQ1;
 	grid[neighbor.x + neighbor.y * GRID_COLUMNS] = WQ1;
 
@@ -279,10 +249,8 @@ main(int argc, char *argv[])
     noecho();
 	mousemask(ALL_MOUSE_EVENTS, NULL);
 	start_color();
-	for (i = 0; i < 8; ++i)
-	{
-		for (j = 0; j < 8; ++j)
-		{
+	for (int i = 0; i < 8; ++i) {
+		for (int j = 0; j < 8; ++j) {
 			adjacent[i][j] = j + i * 8 + 1;
 			init_pair(adjacent[i][j], i, j);
 		}
