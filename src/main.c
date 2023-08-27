@@ -117,24 +117,20 @@ int main(int argc, char *argv[])
 		}
 
 		if (c == 'd') {
-			pad_pos.x = pad_pos.x < pad_max.x
-			          ? pad_pos.x + 1
-			          : pad_pos.x;
+			if (pad_pos.x < pad_max.x)
+				pad_pos.x = pad_pos.x + 1;
 		}
 		if (c == 'a') {
-			pad_pos.x = pad_pos.x > 0
-			          ? pad_pos.x - 1 
-			          : pad_pos.x;
+			if (pad_pos.x > 0)
+				pad_pos.x = pad_pos.x - 1;
 		}
 		if (c == 'w') {
-			pad_pos.y = pad_pos.y > 0
-			          ? pad_pos.y - 1
-			          : pad_pos.y;
+			if (pad_pos.y > 0)
+				pad_pos.y = pad_pos.y - 1;
 		}
 		if (c == 's') {
-			pad_pos.y = pad_pos.y < pad_max.y
-			          ? pad_pos.y + 1
-			          : pad_pos.y;
+			if (pad_pos.y < pad_max.y)
+				pad_pos.y = pad_pos.y + 1;
 		}
 
 		hive_render(&hive, pad);
