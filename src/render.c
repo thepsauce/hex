@@ -36,7 +36,7 @@ void hive_render(struct hive *hive, WINDOW *win)
 			HIVE_PAIR_BLACK_BLACK,
 			HIVE_PAIR_BLACK_WHITE },
 		{ HIVE_PAIR_WHITE,
-		       	HIVE_PAIR_WHITE_BLACK,
+		    HIVE_PAIR_WHITE_BLACK,
 			HIVE_PAIR_WHITE_WHITE },
 	};
 	struct vec3 pos, neighPos, world;

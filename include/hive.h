@@ -9,8 +9,8 @@
 
 #define GRID_COLUMNS 127
 #define GRID_ROWS 127
-#define GRID_LAYERS 127
-#define GRID_SPACES (GRID_COLUMNS*GRID_ROWS)
+#define GRID_LAYERS 8
+#define GRID_SPACES (GRID_COLUMNS * GRID_ROWS * GRID_LAYERS)
 
 #define HIVE_INVENTORY_SIZE 28
 
@@ -53,8 +53,8 @@ enum hive_type {
 };
 
 enum hive_side {
-	HIVE_BLACK = 0x10,
-	HIVE_WHITE = 0x20,
+	HIVE_BLACK = 0x10, /* blue */
+	HIVE_WHITE = 0x20, /* red */
 };
 
 struct hive {
