@@ -62,23 +62,6 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		if (c == 'd') {
-			if (pad_pos.x < pad_max.x)
-				pad_pos.x = pad_pos.x + 1;
-		}
-		if (c == 'a') {
-			if (pad_pos.x > 0)
-				pad_pos.x = pad_pos.x - 1;
-		}
-		if (c == 'w') {
-			if (pad_pos.y > 0)
-				pad_pos.y = pad_pos.y - 1;
-		}
-		if (c == 's') {
-			if (pad_pos.y < pad_max.y)
-				pad_pos.y = pad_pos.y + 1;
-		}
-
 		hive_render(&hive, pad);
 		prefresh(pad, pad_pos.y, pad_pos.x, 0, 0, LINES - 1, COLS - 1);
 	}
