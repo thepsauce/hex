@@ -4,8 +4,12 @@
 #include <assert.h>
 #include <curses.h>
 #include <locale.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+#include "net.h"
 
 #define GRID_COLUMNS 127
 #define GRID_ROWS 127
@@ -77,6 +81,8 @@ enum hive_stack {
 };
 
 struct hive {
+	WINDOW *win;
+	struct vec3 winPos;
 	enum hive_side turn;
 	enum hive_type whiteInventory[HIVE_INVENTORY_SIZE];
 	enum hive_type blackInventory[HIVE_INVENTORY_SIZE];
@@ -92,9 +98,10 @@ struct hive {
 struct vec3 vec_move(const struct vec3 *vec, enum hive_direction dir);
 enum hive_direction vec_getdir(const struct vec3 *a, const struct vec3 *b);
 
+void hive_init(struct hive *hive);
 piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos);
 piece_t hive_getabove(struct hive *hive, const struct vec3 *pos);
-void hive_handlemousepress(struct hive *hive, const struct vec3 *mp);
-void hive_render(struct hive *hive, WINDOW *win);
+void hive_render(struct hive *hive);
+int hive_handle(struct hive *hive, int c);
 
 #endif
