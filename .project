@@ -1,2 +1,2 @@
-
+-g -Wextra -Wall
 -lcurses

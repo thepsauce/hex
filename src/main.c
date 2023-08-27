@@ -35,17 +35,20 @@ int main(int argc, char *argv[])
 {
 	struct hive hive;
 
+	(void) argc;
+	(void) argv;
+
 	setlocale(LC_ALL, "");
 
 	initscr();
-	curs_set(FALSE);
-	keypad(stdscr, TRUE);
+	curs_set(false);
+	keypad(stdscr, true);
 	cbreak();
 	noecho();
 	mousemask(ALL_MOUSE_EVENTS, NULL);
+	mouseinterval(0);
 	start_color();
-	// nodelay(stdscr, TRUE);
-	wtimeout(stdscr, 10);
+	//nodelay(stdscr, true);
 
 	memset(&hive, 0, sizeof(hive));
 	hive.turn = HIVE_BLACK;
@@ -55,25 +58,24 @@ int main(int argc, char *argv[])
 		default_inventory, sizeof(default_inventory));
 
 	/* test setup */
-	struct vec3 pos = { 6, 6 };
+	struct vec3 pos = { 6, 6, 0 };
 	for (int i = 0; i < 20; i++) {
-		const enum hive_type t = 1 + rand() % (HIVE_SPECIES - 1);
+		const enum hive_type t = 1 + rand() % (HIVE_TYPES - 1);
 		const enum hive_side s = (1 + rand() % 2) << 4;
 		hive.grid[pos.x + pos.y * GRID_COLUMNS] = t | s;
-		vec_move(&pos, rand() % 6, &pos);
+		pos = vec_move(&pos, rand() % 6);
 	}
 
-	init_pair(HIVE_PAIR_BLACK, COLOR_BLACK, COLOR_RED);
-	init_pair(HIVE_PAIR_WHITE, COLOR_BLACK, COLOR_BLUE);
-	init_pair(HIVE_PAIR_BLACK_WHITE, COLOR_BLUE, COLOR_RED);
-	init_pair(HIVE_PAIR_WHITE_BLACK, COLOR_RED, COLOR_BLUE);
+	init_pair(HIVE_PAIR_BLACK, COLOR_RED, COLOR_BLACK);
+	init_pair(HIVE_PAIR_WHITE, COLOR_BLUE, COLOR_BLACK);
+	init_pair(HIVE_PAIR_BLACK_WHITE, COLOR_RED, COLOR_BLUE);
+	init_pair(HIVE_PAIR_WHITE_BLACK, COLOR_BLUE, COLOR_RED);
 	init_pair(HIVE_PAIR_BLACK_BLACK, COLOR_RED, COLOR_RED);
 	init_pair(HIVE_PAIR_WHITE_WHITE, COLOR_BLUE, COLOR_BLUE);
 
+	/* TODO: clean this up */
 	struct vec3 pad_max;
 	struct vec3 pad_pos;
-	struct vec3 hex_pos;
-	int piece = 0;
 
 	pad_pos.x = 0;
 	pad_pos.y = 0;
@@ -86,59 +88,47 @@ int main(int argc, char *argv[])
 		int c;
 		MEVENT event;
 
+		/* TODO: figure out why this does not draw the first time */
 		werase(pad);
+		hive_render(&hive, pad);
+		prefresh(pad, pad_pos.y, pad_pos.x, 0, 0, LINES - 1, COLS - 1);
 
 		c = getch();
 		if (c == 'q')
 			break;
-		if (c == KEY_MOUSE) {
+		switch(c) {
+		case KEY_MOUSE:
 			getmouse(&event);
-			if (event.bstate & BUTTON1_CLICKED || event.bstate & BUTTON1_PRESSED) {
+			if (event.bstate & BUTTON1_CLICKED ||
+					event.bstate & BUTTON1_PRESSED) {
 				struct vec3 pos;
-				pos.y = event.y;
+
 				pos.x = event.x;
+				pos.y = event.y;
 				wmouse_trafo(pad, &pos.y, &pos.x, FALSE);
-				pos.y = pos.y + pad_pos.y;
+
 				pos.x = pos.x + pad_pos.x;
-				pos.x = pos.x / 4;
-				pos.y = (pos.y - (pos.x % 2)) / 2;
-				if (pos.x != hex_pos.x || pos.y != hex_pos.y) {
-					if (piece) {
-						hive.grid[pos.x + pos.y * GRID_COLUMNS] = piece;
-						piece = 0;
-						hive.grid[hex_pos.x + hex_pos.y * GRID_COLUMNS] = 0;
-					}
-					else {
-						hex_pos = pos;
-						piece = hive.grid[pos.x + pos.y * GRID_COLUMNS];
-					}
-				}
+				pos.y = pos.y + pad_pos.y;
+				hive_handlemousepress(&hive, &pos);
 			}
+			break;
+		case 'd':
+			pad_pos.x = pad_pos.x < pad_max.x ?
+				pad_pos.x + 1 : pad_pos.x;
+			break;
+		case 'a':
+			pad_pos.x = pad_pos.x > 0 ?
+				pad_pos.x - 1 : pad_pos.x;
+			break;
+		case 'w':
+			pad_pos.y = pad_pos.y > 0 ?
+				pad_pos.y - 1 : pad_pos.y;
+			break;
+		case 's':
+			pad_pos.y = pad_pos.y < pad_max.y ?
+				pad_pos.y + 1 : pad_pos.y;
+			break;
 		}
-
-		if (c == 'd') {
-			pad_pos.x = pad_pos.x < pad_max.x
-			          ? pad_pos.x + 1
-			          : pad_pos.x;
-		}
-		if (c == 'a') {
-			pad_pos.x = pad_pos.x > 0
-			          ? pad_pos.x - 1 
-			          : pad_pos.x;
-		}
-		if (c == 'w') {
-			pad_pos.y = pad_pos.y > 0
-			          ? pad_pos.y - 1
-			          : pad_pos.y;
-		}
-		if (c == 's') {
-			pad_pos.y = pad_pos.y < pad_max.y
-			          ? pad_pos.y + 1
-			          : pad_pos.y;
-		}
-
-		hive_render(&hive, pad);
-		prefresh(pad, pad_pos.y, pad_pos.x, 0, 0, LINES - 1, COLS - 1);
 	}
 
 	endwin();
