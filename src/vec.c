@@ -1,6 +1,6 @@
 #include "hive.h"
 
-static const struct vec3 dir_offsets[2][6] = {
+const struct vec3 dir_offsets[2][6] = {
 	{
 		{  1,  0, 0 }, {  1, -1, 0 }, { 0, -1, 0 },
 		{ -1, -1, 0 }, { -1,  0, 0 }, { 0,  1, 0 }

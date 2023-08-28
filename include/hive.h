@@ -35,12 +35,14 @@ int chat_handle(struct chat *chat, int c);
 
 #define HIVE_TYPE_MASK	0x0f
 #define HIVE_SIDE_MASK	0x30
+#define HIVE_PIECE_MASK 0x3f
 #define HIVE_STACK_MASK	0xc0
 
 /* These macros give normalized results, do not compare
  * HIVE_GETNSIDE with HIVE_WHITE or HIVE_BLACK.
  * Instead use HIVE_GETSIDE to get the real value.
  */
+#define HIVE_GETNPIECE(p) ((p) & HIVE_PIECE_MASK)
 #define HIVE_GETNTYPE(p) ((p) & HIVE_TYPE_MASK)
 #define HIVE_GETNSIDE(p) (((p) & HIVE_SIDE_MASK) >> 4)
 
@@ -112,6 +114,7 @@ struct hive {
 	enum hive_type blackInventory[HIVE_INVENTORY_SIZE];
 	piece_t selectedPiece;
 	struct vec3 selectedPos;
+	int piecesPlayed;
 	piece_t grid[GRID_COLUMNS * GRID_ROWS];
 	struct {
 		struct vec3 pos;
