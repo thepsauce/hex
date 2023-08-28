@@ -11,19 +11,9 @@
 #include <unistd.h>
 
 #include "net.h"
+#include "chat.h"
 
-struct chat {
-	int x, y, w, h;
-	char rBuf[32768];
-	size_t nRead;
-	char wBuf[1024];
-	size_t nWrite, iWrite;
-	bool newlineMode;
-};
-
-int chat_init(struct chat *chat);
-int chat_handle(struct chat *chat, int c);
-
+#define ARRLEN(a) (sizeof(a)/sizeof*(a))
 
 #define GRID_COLUMNS 127
 #define GRID_ROWS 127

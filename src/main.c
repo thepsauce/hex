@@ -43,10 +43,7 @@ int main(int argc, char *argv[])
 	hive_init(&hive_game);
 
 	struct chat chat;
-	chat_init(&chat);
-	chat.x = 0;
-	chat.y = 0;
-	chat.w = 30;
+	chat_init(&chat, 0, 0, 30, LINES);
 	chat.h = LINES;
 	erase();
 	while (1) {
