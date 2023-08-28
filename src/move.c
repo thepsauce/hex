@@ -11,7 +11,7 @@ const unsigned char HIVE_NORTH_WEST_BIT = HIVE_DIRECTION_BIT(HIVE_NORTH_WEST);
 const unsigned char HIVE_SOUTH_WEST_BIT = HIVE_DIRECTION_BIT(HIVE_SOUTH_WEST);
 const unsigned char HIVE_SOUTH_BIT = HIVE_DIRECTION_BIT(HIVE_SOUTH);
 
-static unsigned char avail_bitset(unsigned char neigh)
+static unsigned char slide_bitset(unsigned char neigh)
 {
     if ((neigh & (HIVE_NORTH_BIT | HIVE_SOUTH_EAST_BIT | HIVE_SOUTH_WEST_BIT)) ==
                  (HIVE_NORTH_BIT | HIVE_SOUTH_EAST_BIT | HIVE_SOUTH_WEST_BIT))
@@ -35,11 +35,6 @@ static unsigned char avail_bitset(unsigned char neigh)
     if (neigh & HIVE_SOUTH_BIT)
         avail |= ~neigh & (HIVE_SOUTH_EAST_BIT | HIVE_SOUTH_WEST_BIT);
 
-    return avail;
-}
-   
-static unsigned char block_bitset(unsigned char neigh)
-{
     unsigned char block = 0;
 
     if ((neigh & (HIVE_SOUTH_BIT | HIVE_NORTH_EAST_BIT)) ==
@@ -61,7 +56,7 @@ static unsigned char block_bitset(unsigned char neigh)
                  (HIVE_SOUTH_EAST_BIT | HIVE_SOUTH_WEST_BIT))
         block |= HIVE_SOUTH_BIT;
 
-    return ~block;
+    return avail & ~block;
 }
 
 static unsigned char neigh_bitset(struct hive *hive, struct vec3 pos, enum hive_side side)
@@ -76,13 +71,13 @@ static unsigned char neigh_bitset(struct hive *hive, struct vec3 pos, enum hive_
     return neighBitset;
 }
 
-static bool can_place(struct hive *hive, struct vec3 pos, piece_t piece)
+bool hive_can_place(struct hive *hive, struct vec3 pos, piece_t piece)
 {
 	return neigh_bitset(hive, pos, HIVE_GETSIDE(piece));
 }
 
 
-static bool one_hive(struct hive *hive, struct vec3 pos)
+bool hive_one_hive(struct hive *hive, struct vec3 pos)
 {
 	int count = 0;
 	piece_t piece = hive_getexposedpiece(hive, &pos);
@@ -130,28 +125,32 @@ static bool one_hive(struct hive *hive, struct vec3 pos)
 	return count == hive->piecesPlayed;
 }
 
-void generate_moves_for_ant(struct hive *hive, struct vec3 pos)
+static bool find_pos(const struct vec3 *posQueue, const struct vec3 *pos)
 {
-    struct visited_pos { struct vec3 key; };
-    struct visited_pos *visitedPos = NULL;
+   	for (int i = 0; i < arrlen(posQueue); i++) {
+   		if (memcmp(&posQueue[i], pos, sizeof pos) == 0) {
+   			return true;
+   		}
+   	}
+   	return false;
+}
+
+void hive_moves_for_ant(struct hive *hive, struct vec3 pos)
+{
     struct vec3 *posQueue = NULL;
     arrput(posQueue, pos);
-    hmputs(visitedPos, (struct visited_pos){pos});
     while (arrlen(posQueue)) {
         struct vec3 currentPos = arrpop(posQueue);
         unsigned char neigh = neigh_bitset(hive, currentPos, HIVE_WHITE & HIVE_BLACK);
-        unsigned char slide = avail_bitset(neigh)
-                            & block_bitset(neigh);
+        unsigned char slide = slide_bitset(neigh);
         for (int i = 0; i < 6; i++) {
             if(slide & HIVE_DIRECTION_BIT(i)) {
                 struct vec3 adjPos = vec_move(&currentPos, i);
-                if (hmgeti(visitedPos, adjPos) == -1) {
-                    hmputs(visitedPos, (struct visited_pos){adjPos});
-                    arrput(posQueue, adjPos);
+                if (find_pos(posQueue, &adjPos) == false) {
+                	arrput(posQueue, adjPos);
                 }
             }
         }
     }
     arrfree(posQueue);
-    hmfree(visitedPos);
 }
