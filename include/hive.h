@@ -2,6 +2,7 @@
 #define INCLUDED_HIVE_H
 
 #include <assert.h>
+#include <ctype.h>
 #include <curses.h>
 #include <locale.h>
 #include <stdbool.h>
@@ -10,6 +11,19 @@
 #include <unistd.h>
 
 #include "net.h"
+
+struct chat {
+	int x, y, w, h;
+	char rBuf[32768];
+	size_t nRead;
+	char wBuf[1024];
+	size_t nWrite, iWrite;
+	bool newlineMode;
+};
+
+int chat_init(struct chat *chat);
+int chat_handle(struct chat *chat, int c);
+
 
 #define GRID_COLUMNS 127
 #define GRID_ROWS 127
@@ -78,6 +92,16 @@ enum hive_side {
 enum hive_stack {
 	HIVE_ABOVE = 0x40,
 	HIVE_BELOW = 0x80,
+};
+
+struct state {
+	int (*state)(void *param, int c);
+	void *param;
+};
+
+struct window {
+	WINDOW *win;
+	struct state *state;
 };
 
 struct hive {

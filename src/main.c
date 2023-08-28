@@ -25,7 +25,6 @@ int main(int argc, char *argv[])
 	setlocale(LC_ALL, "");
 
 	initscr();
-	curs_set(false);
 	keypad(stdscr, true);
 	cbreak();
 	noecho();
@@ -43,6 +42,13 @@ int main(int argc, char *argv[])
 
 	hive_init(&hive_game);
 
+	struct chat chat;
+	chat_init(&chat);
+	chat.x = 0;
+	chat.y = 0;
+	chat.w = 30;
+	chat.h = LINES;
+	erase();
 	while (1) {
 		int c;
 		MEVENT event;
@@ -50,6 +56,8 @@ int main(int argc, char *argv[])
 		c = getch();
 		if (c == 'q')
 			break;
+		chat_handle(&chat, c);
+		continue;
 		if(all_states[cur_state].
 				state(all_states[cur_state].param, c) == 1) {
 			switch (c) {
@@ -61,9 +69,6 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
-
-		hive_render(&hive, pad);
-		prefresh(pad, pad_pos.y, pad_pos.x, 0, 0, LINES - 1, COLS - 1);
 	}
 
 	endwin();

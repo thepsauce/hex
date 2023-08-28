@@ -25,7 +25,7 @@ enum hive_direction vec_getdir(const struct vec3 *a, const struct vec3 *b)
 {
 	const int dx = a->x - b->x;
 	const int dy = a->y - b->y;
-	const struct vec3 *const offsets = dir_offsets[a->y % 2];
+	const struct vec3 *const offsets = dir_offsets[a->x % 2];
 	for (enum hive_direction d = 0; d < 6; d++)
 		if (offsets[d].x == dx && offsets[d].y == dy)
 			return d;
