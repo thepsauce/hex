@@ -11,7 +11,7 @@ const unsigned char HIVE_NORTH_WEST_BIT = HIVE_DIRECTION_BIT(HIVE_NORTH_WEST);
 const unsigned char HIVE_SOUTH_WEST_BIT = HIVE_DIRECTION_BIT(HIVE_SOUTH_WEST);
 const unsigned char HIVE_SOUTH_BIT = HIVE_DIRECTION_BIT(HIVE_SOUTH);
 
-static unsigned char avail(unsigned char neigh)
+static unsigned char avail_bitset(unsigned char neigh)
 {
     if ((neigh & (HIVE_NORTH_BIT | HIVE_SOUTH_EAST_BIT | HIVE_SOUTH_WEST_BIT)) ==
                  (HIVE_NORTH_BIT | HIVE_SOUTH_EAST_BIT | HIVE_SOUTH_WEST_BIT))
@@ -38,7 +38,7 @@ static unsigned char avail(unsigned char neigh)
     return avail;
 }
    
-static unsigned char block(unsigned char neigh)
+static unsigned char block_bitset(unsigned char neigh)
 {
     unsigned char block = 0;
 
@@ -109,7 +109,7 @@ static bool one_hive(struct hive *hive, struct vec3 pos)
 	}
 
 	while (arrlen(posQueue)) {
-		piece_t piece = hive->grid[pos.x + pos.y * GRID_COLUMNS];
+		piece_t piece = hive->grid[adjPos.x + adjPos.y * GRID_COLUMNS];
 		if (visited[HIVE_GETNPIECE(piece)] == false) {
 			visited[HIVE_GETNPIECE(piece)] == true;
 			count++;
@@ -128,4 +128,30 @@ static bool one_hive(struct hive *hive, struct vec3 pos)
 	free(visited);
 	arrfree(posQueue);
 	return count == hive->piecesPlayed;
+}
+
+void generate_moves_for_ant(struct hive *hive, struct vec3 pos)
+{
+    struct visited_pos { struct vec3 key; };
+    struct visited_pos *visitedPos = NULL;
+    struct vec3 *posQueue = NULL;
+    arrput(posQueue, pos);
+    hmputs(visitedPos, (struct visited_pos){pos});
+    while (arrlen(posQueue)) {
+        struct vec3 currentPos = arrpop(posQueue);
+        unsigned char neigh = neigh_bitset(hive, currentPos, HIVE_WHITE & HIVE_BLACK);
+        unsigned char slide = avail_bitset(neigh)
+                            & block_bitset(neigh);
+        for (int i = 0; i < 6; i++) {
+            if(slide & HIVE_DIRECTION_BIT(i)) {
+                struct vec3 adjPos = vec_move(&currentPos, i);
+                if (hmgeti(visitedPos, adjPos) == -1) {
+                    hmputs(visitedPos, (struct visited_pos){adjPos});
+                    arrput(posQueue, adjPos);
+                }
+            }
+        }
+    }
+    arrfree(posQueue);
+    hmfree(visitedPos);
 }
