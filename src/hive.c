@@ -1,6 +1,6 @@
 #include "hive.h"
 
-void hive_init(struct hive *hive)
+int hive_init(struct hive *hive)
 {
 	static const enum hive_type defaultInventory[HIVE_INVENTORY_SIZE] = {
 		HIVE_QUEEN,
@@ -34,7 +34,8 @@ void hive_init(struct hive *hive)
 	};
 
 	memset(hive, 0, sizeof(*hive));
-	hive->win = newpad(GRID_ROWS * 2, GRID_COLUMNS * 4);
+	if ((hive->win = newpad(GRID_ROWS * 2, GRID_COLUMNS * 4)) == NULL)
+		return -1;
 	hive->turn = HIVE_BLACK;
 	memcpy(&hive->blackInventory,
 		defaultInventory, sizeof(defaultInventory));
@@ -50,6 +51,7 @@ void hive_init(struct hive *hive)
 		pos = vec_move(&pos, rand() % 6);
 	}
 	hive_render(hive);
+	return 0;
 }
 
 piece_t hive_getabove(struct hive *hive, const struct vec3 *pos)

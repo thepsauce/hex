@@ -1,29 +1,120 @@
 #include "hive.h"
 
-int chat_join(struct chat *chat, char *args, int nArgs)
+void *chat_setuser(void *arg)
 {
-	static const char *err1 = "/join [ip address] [port]\n";
+	static const char *usage = "/setuser [name]\n";
+	static const char *err1 = "that name is too long.\n";
+	static const char *msg1 = "successfully changed your name!\n";
 
-	if (nArgs != 2) {
-		chat_writeout(chat, err1, strlen(err1));
-		return -1;
+	struct chat_job *const job = (struct chat_job*) arg;
+	struct chat *const chat = (struct chat*) job->chat;
+	char *name;
+
+	if (job->nargs != 1) {
+		chat_syncwriteout(chat, usage, strlen(usage));
+		return NULL;
+	}
+	name = job->args;
+	if (strlen(name) >= sizeof(chat->name)) {
+		chat_syncwriteout(chat, err1, strlen(err1));
+		return NULL;
+	}
+	strcpy(chat->name, name);
+	chat_syncwriteout(chat, msg1, strlen(msg1));
+
+	return NULL;
+}
+
+void *chat_host(void *arg)
+{
+	static const char *usage = "/host [port]\n";
+	static const char *err1 = "failed creating host server.\n";
+	static const char *msg1 = "now hosting server!\n";
+
+	struct chat_job *const job = (struct chat_job*) arg;
+	struct chat *const chat = (struct chat*) job->chat;
+	char *args;
+	int port;
+
+	args = job->args;
+	if (job->nargs != 2) {
+		chat_syncwriteout(chat, usage, strlen(usage));
+		goto end;
 	}
 
-	return 0;
+	if (!isdigit(*args)) {
+		chat_syncwriteout(chat, usage, strlen(usage));
+		goto end;
+	}
+	port = atoi(args);
+
+	if (net_host(chat->socket, port) < 0) {
+		chat_syncwriteout(chat, err1, strlen(err1));
+		goto end;
+	}
+	chat_syncwriteout(chat, msg1, strlen(msg1));
+
+end:
+	job->tid = 0;
+	return NULL;
+}
+
+void *chat_join(void *arg)
+{
+	static const char *usage = "/join [ip address] [port]\n";
+	static const char *err1 = "failed to connect to the server\n";
+	static const char *msg1 = "trying to connect to the server...\n";
+	static const char *msg2 = "connection established!\n";
+
+	struct chat_job *const job = (struct chat_job*) arg;
+	struct chat *const chat = (struct chat*) job->chat;
+	char *args;
+	const char *ip;
+	int port;
+
+	args = job->args;
+	if (job->nargs != 2) {
+		chat_syncwriteout(chat, usage, strlen(usage));
+		goto end;
+	}
+
+	ip = args;
+	args += strlen(args) + 1;
+
+	if (!isdigit(*args)) {
+		chat_syncwriteout(chat, usage, strlen(usage));
+		goto end;
+	}
+	port = atoi(args);
+
+	chat_syncwriteout(chat, msg1, strlen(msg1));
+	if (net_connect(chat->socket, ip, port) < 0) {
+		chat_syncwriteout(chat, err1, strlen(err1));
+		goto end;
+	}
+	chat_syncwriteout(chat, msg2, strlen(msg2));
+
+end:
+	job->tid = 0;
+	return NULL;
 }
 
 int chat_exec(struct chat *chat)
 {
 	static const struct {
 		const char *name;
-		int (*proc)(struct chat *chat, char *args, int nArgs);
+		void *(*proc)(void *arg);
+		bool isAsync;
 	} *cmd, commands[] = {
-		{ "join", chat_join },
+		{ "setuser", chat_setuser, false },
+		{ "join", chat_join, true },
+		{ "host", chat_host, true },
 	};
 	static const char *err1 = "command does not exist\n";
+	static const char *err2 = "too many jobs are running already\n";
 
 	size_t i, s, n;
-	int nArgs;
+	struct chat_job *job;
 	int exitCode;
 
 	for (i = 0; i < chat->nIn; i++)
@@ -55,13 +146,30 @@ int chat_exec(struct chat *chat)
 		}
 	if (cmd == NULL) {
 		exitCode = -1;
-		chat_writeout(chat, err1, strlen(err1));
+		chat_syncwriteout(chat, err1, strlen(err1));
 		goto end;
+	}
+
+	/* find an available job id */
+	if (!cmd->isAsync) {
+		job = &chat->syncJob;
+	} else {
+		job = NULL;
+		for (size_t j = 0; j < ARRLEN(chat->jobs); j++)
+			if (chat->jobs[j].tid == 0) {
+				job = chat->jobs + j;
+				break;
+			}
+		if (job == NULL) {
+			exitCode = -1;
+			chat_syncwriteout(chat, err2, strlen(err2));
+			goto end;
+		}
 	}
 
 	/* parse arguments by setting null terminators at the correct places */
 	s = 0;
-	nArgs = 0;
+	job->nargs = 0;
 	while(1) {
 		while (isblank(chat->in[i]) && i != chat->nIn)
 			i++;
@@ -74,13 +182,23 @@ int chat_exec(struct chat *chat)
 		while (!isblank(chat->in[i]) && i != chat->nIn)
 			i++;
 		chat->in[i] = '\0';
-		nArgs++;
-		if (i == chat->nIn)
+		job->nargs++;
+		if (i == chat->nIn) {
+			chat->nIn++;
 			break;
+		}
 		i++;
 		s = i;
 	}
-	exitCode = cmd->proc(chat, chat->in, nArgs);
+
+	/* create a job (in the background if isAsync) */
+	job->args = realloc(job->args, chat->nIn);
+	memcpy(job->args, chat->in, chat->nIn);
+	if (cmd->isAsync)
+		pthread_create(&job->tid, NULL, cmd->proc, job);
+	else
+		cmd->proc(job);
+
 end:
 	chat->nIn = 0;
 	chat->iIn = 0;

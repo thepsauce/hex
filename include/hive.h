@@ -115,7 +115,7 @@ struct hive {
 struct vec3 vec_move(const struct vec3 *vec, enum hive_direction dir);
 enum hive_direction vec_getdir(const struct vec3 *a, const struct vec3 *b);
 
-void hive_init(struct hive *hive);
+int hive_init(struct hive *hive);
 piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos);
 piece_t hive_getabove(struct hive *hive, const struct vec3 *pos);
 void hive_render(struct hive *hive);
