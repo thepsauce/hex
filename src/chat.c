@@ -1,11 +1,5 @@
 #include "hive.h"
 
-#define chat_lockout(c) pthread_mutex_lock(&((c)->outLock))
-#define chat_unlockout(c) pthread_mutex_unlock(&((c)->outLock))
-
-#define chat_locksend(c) pthread_mutex_lock(&((c)->sendLock))
-#define chat_unlocksend(c) pthread_mutex_unlock(&((c)->sendLock))
-
 static bool chat_iscommand(struct chat *chat)
 {
 	for (size_t i = 0; i < chat->nIn; i++)
@@ -57,9 +51,9 @@ static void chat_render(struct chat *chat)
 
 	wcolor_set(win, 0, NULL);
 
-	chat_lockout(chat);
+	pthread_mutex_lock(&chat->outLock);
 	mvwaddnstr(win, 0, 0, chat->out, chat->nOut);
-	chat_unlockout(chat);
+	pthread_mutex_unlock(&chat->outLock);
 
 	getyx(win, y, x);
 	wclrtobot(win);
@@ -88,6 +82,8 @@ int chat_init(struct chat *chat, int x, int y, int w, int h)
 	chat->syncJob.chat = chat;
 	scrollok(chat->win, true);
 	chat_render(chat);
+	chat->sender = -1;
+	chat->socket = -1;
 	return 0;
 }
 
@@ -107,79 +103,6 @@ int chat_setposition(struct chat *chat, int x, int y, int w, int h)
 	chat->y = y;
 	chat_render(chat);
 	return 0;
-}
-
-size_t chat_writein(struct chat *chat, const char *buf, size_t szBuf)
-{
-	const size_t capacity = sizeof(chat->in) - chat->nIn;
-	const size_t actual = capacity < szBuf ? capacity : szBuf;
-
-	buf += szBuf - actual;
-	if (chat->flags & CHAT_NEWLINE) {
-		chat->flags ^= CHAT_NEWLINE;
-		if (chat->nIn + 1 + actual >= sizeof(chat->in))
-			return 0;
-		memmove(chat->in + chat->iIn + 1,
-			chat->in + chat->iIn,
-			chat->nIn - chat->iIn);
-		chat->in[chat->iIn++] = '\n';
-		chat->nIn++;
-	}
-	memmove(chat->in + chat->iIn + actual,
-		chat->in + chat->iIn,
-		chat->nIn - chat->iIn);
-	memcpy(chat->in + chat->iIn, buf, actual);
-	chat->iIn += actual;
-	chat->nIn += actual;
-	chat->flags |= CHAT_IN_CHANGED;
-	return actual;
-}
-
-size_t chat_writeout(struct chat *chat, const char *buf, size_t szBuf)
-{
-	const size_t actual = szBuf % sizeof(chat->out);
-	const size_t capacity = sizeof(chat->out) - chat->nOut;
-
-	buf += szBuf - actual;
-	if (actual > capacity)
-		memmove(chat->out,
-			chat->out + actual - capacity,
-			chat->nOut - (actual - capacity));
-	memcpy(chat->out + chat->nOut, buf, szBuf);
-	chat->nOut += actual;
-	chat->flags |= CHAT_OUT_CHANGED;
-	return actual;
-}
-
-size_t chat_syncwriteout(struct chat *chat, const char *buf, size_t szBuf)
-{
-	pthread_mutex_lock(&chat->outLock);
-	const size_t r = chat_writeout(chat, buf, szBuf);
-	pthread_mutex_unlock(&chat->outLock);
-	return r;
-}
-
-void chat_sendmessage(struct chat *chat)
-{
-	if (chat->flags & CHAT_CONNECTED) {
-		char *const buf = malloc(300 + chat->nIn);
-		sprintf(buf, "<%s> %.*s\n", chat->name,
-				(int) chat->nIn, chat->in);
-		net_send(chat->socket, buf, strlen(buf));
-		free(buf);
-	}
-
-	chat_lockout(chat);
-	chat_writeout(chat, "<", 1);
-	chat_writeout(chat, chat->name, strlen(chat->name));
-	chat_writeout(chat, "> ", 2);
-	chat_writeout(chat, chat->in, chat->nIn);
-	chat_writeout(chat, "\n", 1);
-	chat_unlockout(chat);
-	chat->iIn = 0;
-	chat->nIn = 0;
-	chat->flags |= CHAT_CURSOR_CHANGED;
-	chat->flags |= CHAT_IN_CHANGED;
 }
 
 int chat_handle(struct chat *chat, int c)

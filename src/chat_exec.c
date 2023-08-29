@@ -3,36 +3,28 @@
 void *chat_setuser(void *arg)
 {
 	static const char *usage = "/setuser [name]\n";
-	static const char *err1 = "that name is too long.\n";
-	static const char *msg1 = "successfully changed your name!\n";
 
 	struct chat_job *const job = (struct chat_job*) arg;
 	struct chat *const chat = (struct chat*) job->chat;
 	char *name;
 
 	if (job->nargs != 1) {
-		chat_syncwriteout(chat, usage, strlen(usage));
+		chat_writeout(chat, usage, strlen(usage));
 		return NULL;
 	}
 	name = job->args;
 	if (strlen(name) >= sizeof(chat->name)) {
-		chat_syncwriteout(chat, err1, strlen(err1));
+		chat_printf(chat, "That name is too long.\n");
 		return NULL;
 	}
 	strcpy(chat->name, name);
-	chat_syncwriteout(chat, msg1, strlen(msg1));
-
+	chat_printf(chat, "Successfully changed your name to '%s'\n", name);
 	return NULL;
 }
 
 void *chat_host(void *arg)
 {
 	static const char *usage = "/host [port]\n";
-	static const char *err1 = "invalid argument. port must be an integer.\n";
-	static const char *err2 = "failed creating socket.\n";
-	static const char *err3 = "failed creating host server.\n";
-	static const char *msg1 = "now hosting server!\n";
-	static const char *msg2 = "connection closed!\n";
 
 	struct chat_job *const job = (struct chat_job*) arg;
 	struct chat *const chat = (struct chat*) job->chat;
@@ -46,49 +38,75 @@ void *chat_host(void *arg)
 
 	args = job->args;
 	if (job->nargs != 1) {
-		chat_syncwriteout(chat, usage, strlen(usage));
+		chat_writeout(chat, usage, strlen(usage));
 		goto end;
 	}
 
 	if (!isdigit(*args)) {
-		chat_syncwriteout(chat, err1, strlen(err1));
+		chat_printf(chat, "Invalid port. Must be an integer\n");
 		goto end;
 	}
 	port = atoi(args);
 
+	if (chat->socket >= 0) {
+		chat_printf(chat, "There already is an active socket.\n");
+		goto end;
+	}
+
 	if ((server = net_socket()) < 0) {
-		chat_syncwriteout(chat, err2, strlen(err2));
+		chat_printf(chat, "Failed creating socket: %s\n",
+			strerror(errno));
 		goto end;
 	}
 
 	if (net_host(server, port) < 0) {
-		chat_syncwriteout(chat, err3, strlen(err3));
+		chat_printf(chat, "Failed binding socket: %s\n",
+			strerror(errno));
 		goto end;
 	}
-	chat_syncwriteout(chat, msg1, strlen(msg1));
-
-	if (listen(server, 3) < 0)
+	if (listen(server, 3) < 0) {
+		chat_printf(chat, "Failed marking socket: %s\n",
+			strerror(errno));
 		goto end;
+	}
 
+	chat_printf(chat, "Successfully started host server at port %d!\n",
+		port);
+
+	chat->socket = server;
+next:
 	if ((socket = accept(server,
 			(struct sockaddr*) &address,
 			(socklen_t*) &addrlen)) < 0) {
-		close(server);
+		chat_printf(chat, "Failed accepting socket: %s\n",
+			strerror(errno));
+		if (chat->socket >= 0)
+			close(server);
+		chat->socket = -1;
 		goto end;
 	}
 
-	chat->socket = socket;
-	chat->flags |= CHAT_CONNECTED;
+	chat_printf(chat, "Established a connection!\n");
+	chat->sender = socket;
 	while (1) {
 		n = net_receive(socket, buf, sizeof(buf));
-		if (n <= 0)
+		if (n < 0) {
+			chat_printf(chat, "Failed receiving: %s\n",
+				strerror(errno));
+			close(socket);
 			break;
-		chat_syncwriteout(chat, buf, n);
+		}
+		if (n == 0) {
+			chat_printf(chat, "Closed connection!\n");
+			goto next;
+		}
+		chat_writeout(chat, buf, n);
 	}
-	chat->flags &= ~CHAT_CONNECTED;
-	close(socket);
-	close(server);
-	chat_syncwriteout(chat, msg2, strlen(msg2));
+	chat->sender = -1;
+	if (chat->socket >= 0)
+		close(server);
+	chat->socket = -1;
+
 end:
 	job->tid = 0;
 	return NULL;
@@ -97,11 +115,6 @@ end:
 void *chat_join(void *arg)
 {
 	static const char *usage = "/join [ip address] [port]\n";
-	static const char *err1 = "there already exists and open connection\n";
-	static const char *err2 = "failed to connect to the server\n";
-	static const char *msg1 = "trying to connect to the server...\n";
-	static const char *msg2 = "connection established!\n";
-	static const char *msg3 = "connection closed!\n";
 
 	struct chat_job *const job = (struct chat_job*) arg;
 	struct chat *const chat = (struct chat*) job->chat;
@@ -114,7 +127,7 @@ void *chat_join(void *arg)
 
 	args = job->args;
 	if (job->nargs != 2) {
-		chat_syncwriteout(chat, usage, strlen(usage));
+		chat_writeout(chat, usage, strlen(usage));
 		goto end;
 	}
 
@@ -122,54 +135,80 @@ void *chat_join(void *arg)
 	args += strlen(args) + 1;
 
 	if (!isdigit(*args)) {
-		chat_syncwriteout(chat, usage, strlen(usage));
+		chat_printf(chat, "Invalid port. Must be an integer.\n");
 		goto end;
 	}
 	port = atoi(args);
 
-	if (chat->flags & CHAT_CONNECTED) {
-		chat_syncwriteout(chat, err1, strlen(err1));
+	if (chat->socket >= 0) {
+		chat_printf(chat, "There already is an active socket.\n");
 		goto end;
 	}
 
-	if ((socket = net_socket()) < 0)
-		goto end;
-
-	chat_syncwriteout(chat, msg1, strlen(msg1));
-	if (net_connect(socket, ip, port) < 0) {
-		chat_syncwriteout(chat, err2, strlen(err2));
+	if ((socket = net_socket()) < 0) {
+		chat_printf(chat, "Failed creating socket: %s\n",
+			strerror(errno));
 		goto end;
 	}
-	chat_syncwriteout(chat, msg2, strlen(msg2));
 
 	chat->socket = socket;
-	chat->flags |= CHAT_CONNECTED;
+	chat_printf(chat, "Trying to connect to %s:%d...\n", ip, port);
+	if (net_connect(socket, ip, port) < 0) {
+		chat_printf(chat, "Failed connecting: %s\n", strerror(errno));
+		if (chat->socket >= 0)
+			close(socket);
+		chat->socket = -1;
+		goto end;
+	}
+	chat_printf(chat, "Established a connection to %s:%d!\n", ip, port);
+
+	chat->sender = socket;
 	while (1) {
 		n = net_receive(socket, buf, sizeof(buf));
-		if (n <= 0)
+		if (n < 0) {
+			chat_printf(chat, "Failed receiving: %s\n",
+				strerror(errno));
 			break;
-		chat_syncwriteout(chat, buf, n);
+		}
+		if (n == 0) {
+			chat_printf(chat, "Closed connection!\n");
+			break;
+		}
+		chat_writeout(chat, buf, n);
 	}
-	chat->flags &= ~CHAT_CONNECTED;
+	chat->sender = -1;
 	close(socket);
-	chat_syncwriteout(chat, msg3, strlen(msg3));
+	chat->socket = -1;
+
 end:
 	job->tid = 0;
 	return NULL;
 }
 
+/* FIXME: chat_leave() is bugged, it's not correctly leaving when
+ * a host calls it while being connected to a client
+ */
 void *chat_leave(void *arg)
 {
 	static const char *usage = "/leave\n";
+	int socket;
 
 	struct chat_job *const job = (struct chat_job*) arg;
 	struct chat *const chat = (struct chat*) job->chat;
 
 	if (job->nargs != 0) {
-		chat_syncwriteout(chat, usage, strlen(usage));
+		chat_writeout(chat, usage, strlen(usage));
 		goto end;
 	}
-	close(chat->socket);
+	if (chat->socket < 0) {
+		chat_printf(chat, "No active connection.\n");
+		goto end;
+	}
+	socket = chat->socket;
+	chat->socket = -1;
+	shutdown(socket, SHUT_RDWR);
+	close(socket);
+
 end:
 	job->tid = 0;
 	return NULL;
@@ -177,20 +216,19 @@ end:
 
 int chat_exec(struct chat *chat)
 {
-	static const struct {
+	static const struct cmd {
 		const char *name;
 		void *(*proc)(void *arg);
 		bool isAsync;
-	} *cmd, commands[] = {
+	} commands[] = {
 		{ "setuser", chat_setuser, false },
 		{ "join", chat_join, true },
 		{ "host", chat_host, true },
-		{ "leave", chat_leave, false },
+		{ "leave", chat_leave, true },
 	};
-	static const char *err1 = "command does not exist\n";
-	static const char *err2 = "too many jobs are running already\n";
 
 	size_t i, s, n;
+	const struct cmd *cmd;
 	struct chat_job *job;
 	int exitCode;
 
@@ -223,7 +261,8 @@ int chat_exec(struct chat *chat)
 		}
 	if (cmd == NULL) {
 		exitCode = -1;
-		chat_syncwriteout(chat, err1, strlen(err1));
+		chat_printf(chat, "Command '%.*s' does not exist\n",
+			(int) n, chat->in + s);
 		goto end;
 	}
 
@@ -239,7 +278,8 @@ int chat_exec(struct chat *chat)
 			}
 		if (job == NULL) {
 			exitCode = -1;
-			chat_syncwriteout(chat, err2, strlen(err2));
+			chat_printf(chat,
+				"Too many jobs are already running!\n");
 			goto end;
 		}
 	}
