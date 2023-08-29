@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	if (chat_init(&chat_term, 0, 0, 30, LINES) < 0) {
+	if (chat_init(&chat_term, 0, 0, 45, LINES) < 0) {
 		endwin();
 		perror("chat_init");
 		return -1;

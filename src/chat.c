@@ -57,9 +57,9 @@ static void chat_render(struct chat *chat)
 
 	wcolor_set(win, 0, NULL);
 
-	pthread_mutex_lock(&chat->outLock);
+	chat_lockout(chat);
 	mvwaddnstr(win, 0, 0, chat->out, chat->nOut);
-	pthread_mutex_unlock(&chat->outLock);
+	chat_unlockout(chat);
 
 	getyx(win, y, x);
 	wclrtobot(win);
@@ -68,22 +68,6 @@ static void chat_render(struct chat *chat)
 			chat->y + boxHeight - 2, chat->x + chat->w - 1);
 
 	move(chat->y + boxHeight - 1 + cy, chat->x + cx);
-	refresh();
-}
-
-static void *chat_receiverthread(void *arg)
-{
-	struct chat *const chat = (struct chat*) arg;
-	char buf[1024];
-	ssize_t n;
-
-	while(1) {
-		while (!(chat->flags & CHAT_CONNECTED))
-			usleep(10000);
-		n = net_receive(chat->socket, buf, sizeof(buf));
-		chat_syncwriteout(chat, buf, n);
-	}
-	return NULL;
 }
 
 int chat_init(struct chat *chat, int x, int y, int w, int h)
@@ -92,26 +76,13 @@ int chat_init(struct chat *chat, int x, int y, int w, int h)
 	chat->x = x;
 	chat->y = y;
 	chat->w = w;
-	chat->h = w;
+	chat->h = h;
 	if ((chat->win = newpad(h, w)) == NULL)
 		return -1;
-	if ((chat->socket = net_socket()) < 0) {
-		delwin(chat->win);
-		return -1;
-	}
 	if ((pthread_mutex_init(&chat->outLock, NULL)) < 0) {
-		close(chat->socket);
 		delwin(chat->win);
 		return -1;
 	}
-	if ((pthread_mutex_init(&chat->sendLock, NULL)) < 0) {
-		pthread_mutex_destroy(&chat->outLock);
-		close(chat->socket);
-		delwin(chat->win);
-		return -1;
-	}
-	pthread_t thread;
-	pthread_create(&thread, NULL, chat_receiverthread, chat);
 	for (size_t j = 0; j < ARRLEN(chat->jobs); j++)
 		chat->jobs[j].chat = chat;
 	chat->syncJob.chat = chat;
@@ -190,23 +161,25 @@ size_t chat_syncwriteout(struct chat *chat, const char *buf, size_t szBuf)
 
 void chat_sendmessage(struct chat *chat)
 {
-	chat_locksend(chat);
-	memcpy(chat->send + chat->nSend,
-		chat->in, chat->nIn);
-	chat->nSend += chat->nIn;
-	net_send(chat->socket, chat->send, chat->nSend);
-	chat_unlocksend(chat);
+	if (chat->flags & CHAT_CONNECTED) {
+		char *const buf = malloc(300 + chat->nIn);
+		sprintf(buf, "<%s> %.*s\n", chat->name,
+				(int) chat->nIn, chat->in);
+		net_send(chat->socket, buf, strlen(buf));
+		free(buf);
+	}
 
 	chat_lockout(chat);
 	chat_writeout(chat, "<", 1);
 	chat_writeout(chat, chat->name, strlen(chat->name));
-	chat_writeout(chat, ">", 1);
+	chat_writeout(chat, "> ", 2);
 	chat_writeout(chat, chat->in, chat->nIn);
 	chat_writeout(chat, "\n", 1);
 	chat_unlockout(chat);
 	chat->iIn = 0;
 	chat->nIn = 0;
 	chat->flags |= CHAT_CURSOR_CHANGED;
+	chat->flags |= CHAT_IN_CHANGED;
 }
 
 int chat_handle(struct chat *chat, int c)
@@ -254,15 +227,14 @@ int chat_handle(struct chat *chat, int c)
 			chat_exec(chat);
 			break;
 		}
-		if (chat->flags & CHAT_NEWLINE) {
+		if (chat->flags & CHAT_NEWLINE)
 			chat_sendmessage(chat);
-		}
-		chat->flags |= CHAT_IN_CHANGED;
 		chat->flags ^= CHAT_NEWLINE;
+		chat->flags |= CHAT_IN_CHANGED;
 		break;
 	default:
 		if (!isspace(c) && (c < 32 || c > 0xff))
-			return 0;
+			break;
 		chat_writein(chat, &(char) { c }, 1);
 	}
 	if (c != '\n')

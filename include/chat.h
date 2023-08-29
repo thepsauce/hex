@@ -25,7 +25,9 @@ struct chat {
 	/* name of the user */
 	char name[256];
 	int flags;
-	/* net socket */
+	/* net socket (this socket is active while the flag
+	 * CHAT_CONNECTED is toggled)
+	 */
 	int socket;
 	/* running jobs (background commands) */
 	struct chat_job jobs[10];
@@ -41,11 +43,6 @@ struct chat {
 	/* active user input buffer */
 	char in[1024];
 	size_t nIn, iIn;
-	/* mutex for the send stream */
-	pthread_mutex_t sendLock;
-	/* outgoing net buffer */
-	char send[4096];
-	size_t nSend;
 };
 
 int chat_init(struct chat *chat, int x, int y, int w, int h);
