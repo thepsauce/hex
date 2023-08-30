@@ -10,6 +10,7 @@
 #define HIVE_NORTH_WEST_BIT	HIVE_DIRECTION_BIT(HIVE_NORTH_WEST)
 #define HIVE_SOUTH_WEST_BIT	HIVE_DIRECTION_BIT(HIVE_SOUTH_WEST)
 #define HIVE_SOUTH_BIT		HIVE_DIRECTION_BIT(HIVE_SOUTH)
+#define HIVE_ALL_DIRECTIONS 0x3F
 
 #define HIVE_BLOCK_BITS1 \
 	(HIVE_NORTH_BIT | HIVE_SOUTH_EAST_BIT | HIVE_SOUTH_WEST_BIT)
@@ -344,7 +345,7 @@ void hive_movesforqueen(struct hive *hive, struct vec3 *pos)
  *         \___/   \___/
  *             \___/
  *
- * Beetle i like a queen except it may move on top of the hive.
+ * Beetle is like a queen except it may move on top of the hive.
  * You may stack as many beetles as you want.  You do not need
  * to be on the same level to move on top of one.
  */
@@ -358,7 +359,7 @@ void hive_movesforbeetle(struct hive *hive, struct vec3 *pos)
 	const piece_t piece = hive_getexposedpiece(hive, pos);
 
 	if (pos->z > 0)
-		slide = 0xFF;
+		slide = HIVE_ALL_DIRECTIONS;
 	else
 		slide = slide_bitset(neigh) & neigh;
 	for (int i = 0; i < 6; i++) {

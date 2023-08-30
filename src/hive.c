@@ -84,31 +84,24 @@ static void hive_handlemousepress(struct hive *hive, const struct vec3 *mp)
 	pos.z = 0;
 	if (pos.x != hive->selectedPos.x || pos.y != hive->selectedPos.y) {
 		if (hive->selectedPiece) {
-			switch (hive->selectedPiece) {
+			switch (HIVE_GETNTYPE(hive->selectedPiece)) {
 				case HIVE_QUEEN:
-					hive_movesforant();
+					hive_movesforqueen(hive, &hive->selectedPos);
 					break;
 				case HIVE_BEETLE:
-					hive_movesforant();
+					hive_movesforbeetle(hive, &hive->selectedPos);
 					break;
 				case HIVE_GRASSHOPPER:
-					hive_movesforant();
+					hive_movesforgrasshopper(hive, &hive->selectedPos);
 					break;
 				case HIVE_SPIDER:
-					hive_movesforant();
+					hive_movesforspider(hive, &hive->selectedPos);
 					break;
 				case HIVE_ANT:
-					hive_movesforant();
+					hive_movesforant(hive, &hive->selectedPos);
 					break;
-				case HIVE_LADYBUG:
-					hive_movesforant();
-					break;
-				case HIVE_MOSQUITO:
-					hive_movesforant();
-					break;
-				case HIVE_PILLBUG:
-					hive_movesforant();
-					break;
+				default:
+					perror("Unhandled");
 			}
 			hive->grid[pos.x + pos.y * GRID_COLUMNS] =
 				hive->selectedPiece;
