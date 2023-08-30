@@ -67,7 +67,7 @@ piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos)
 	piece_t piece;
 
 	piece = hive->grid[pos->x + pos->y * GRID_COLUMNS];
-	while(piece & HIVE_ABOVE) {
+	while (piece & HIVE_ABOVE) {
 		piece = hive_getabove(hive, pos);
 		pos->z++;
 	}
@@ -84,6 +84,32 @@ static void hive_handlemousepress(struct hive *hive, const struct vec3 *mp)
 	pos.z = 0;
 	if (pos.x != hive->selectedPos.x || pos.y != hive->selectedPos.y) {
 		if (hive->selectedPiece) {
+			switch (hive->selectedPiece) {
+				case HIVE_QUEEN:
+					hive_movesforant();
+					break;
+				case HIVE_BEETLE:
+					hive_movesforant();
+					break;
+				case HIVE_GRASSHOPPER:
+					hive_movesforant();
+					break;
+				case HIVE_SPIDER:
+					hive_movesforant();
+					break;
+				case HIVE_ANT:
+					hive_movesforant();
+					break;
+				case HIVE_LADYBUG:
+					hive_movesforant();
+					break;
+				case HIVE_MOSQUITO:
+					hive_movesforant();
+					break;
+				case HIVE_PILLBUG:
+					hive_movesforant();
+					break;
+			}
 			hive->grid[pos.x + pos.y * GRID_COLUMNS] =
 				hive->selectedPiece;
 

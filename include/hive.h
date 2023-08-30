@@ -121,4 +121,10 @@ piece_t hive_getabove(struct hive *hive, const struct vec3 *pos);
 void hive_render(struct hive *hive);
 int hive_handle(struct hive *hive, int c);
 
+void hive_movesforant(struct hive *hive, struct vec3 *pos);
+void hive_movesforbeetle(struct hive *hive, struct vec3 *pos);
+void hive_movesforspider(struct hive *hive, struct vec3 *pos);
+void hive_movesforgrasshopper(struct hive *hive, struct vec3 *pos);
+void hive_movesforqueen(struct hive *hive, struct vec3 *pos);
+
 #endif

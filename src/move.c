@@ -66,7 +66,7 @@ static unsigned char neigh_bitset(struct hive *hive,
 {
 	unsigned char neighBitset = 0;
 
-	for(int i = 0; i < 6; ++i) {
+	for (int i = 0; i < 6; ++i) {
 		struct vec3 neighPos;
 		
 		neighPos = vec_move(pos, i);
@@ -162,7 +162,22 @@ static bool find_pos(const struct vec3 *posQueue, const struct vec3 *pos)
  * their respective function for getting the moves.
  */
 
-void hive_moves_for_ant(struct hive *hive, struct vec3 *pos)
+/*              ___
+ *          ___/   \___
+ *      ___/   \___/   \___
+ *     /   \___/   \___/   \
+ *     \___/           \___/
+ *     /   \               
+ *     \___/            ___
+ *     /   \___     ___/   \
+ *     \___/   \___/   \___/
+ *         \___/   \___/
+ *             \___/
+ *
+ * Ant can move any number of spaces along the hive.
+ */
+
+void hive_movesforant(struct hive *hive, struct vec3 *pos)
 {
 	struct vec3 *posQueue = NULL;
 	struct vec3 *movePos = NULL;
@@ -190,7 +205,26 @@ void hive_moves_for_ant(struct hive *hive, struct vec3 *pos)
 	arrfree(movePos);
 }
 
-void hive_moves_for_spider(struct hive *hive, struct vec3 *pos)
+/*              ___
+ *          ___/   \___
+ *      ___/   \___/   \___
+ *     /   \___/   \___/   \
+ *     \___/           \___/
+ *     /   \               
+ *     \___/            ___
+ *     /   \___     ___/   \
+ *     \___/   \___/   \___/
+ *         \___/   \___/
+ *             \___/
+ *
+ * Spider can move three spaces along the hive.  It must not backtrack.
+ * 
+ * (Note) The way i interpret backtracking
+          is if the piece midway through its move
+          slides to its immediate previous position.
+ */
+
+void hive_movesforspider(struct hive *hive, struct vec3 *pos)
 {
 	/* FIXME: unused variables */
 	const unsigned char
@@ -230,7 +264,23 @@ void hive_moves_for_spider(struct hive *hive, struct vec3 *pos)
 	arrfree(movePos);
 }
 
-void hive_moves_for_grasshopper(struct hive *hive, struct vec3 *pos)
+/*              ___
+ *          ___/   \___
+ *      ___/   \___/   \___
+ *     /   \___/   \___/   \
+ *     \___/           \___/
+ *     /   \               
+ *     \___/            ___
+ *     /   \___     ___/   \
+ *     \___/   \___/   \___/
+ *         \___/   \___/
+ *             \___/
+ *
+ * Grasshopper can hop in a straight line over pieces directly in front of it.
+ * It does not matter if it surrouned by other pieces.
+ */
+
+void hive_movesforgrasshopper(struct hive *hive, struct vec3 *pos)
 {
 	struct vec3 *movePos = NULL;
 	struct vec3 adjPos;
@@ -251,7 +301,22 @@ void hive_moves_for_grasshopper(struct hive *hive, struct vec3 *pos)
 	arrfree(movePos);
 }
 
-void hive_moves_for_queen(struct hive *hive, struct vec3 *pos)
+/*              ___
+ *          ___/   \___
+ *      ___/   \___/   \___
+ *     /   \___/   \___/   \
+ *     \___/           \___/
+ *     /   \               
+ *     \___/            ___
+ *     /   \___     ___/   \
+ *     \___/   \___/   \___/
+ *         \___/   \___/
+ *             \___/
+ *
+ *  Queen can move one space long the hive.
+ */
+
+void hive_movesforqueen(struct hive *hive, struct vec3 *pos)
 {
 	const unsigned char
 		neigh = neigh_bitset(hive, pos, HIVE_WHITE | HIVE_BLACK),
@@ -267,7 +332,24 @@ void hive_moves_for_queen(struct hive *hive, struct vec3 *pos)
 	arrfree(movePos);
 }
 
-void hive_moves_for_beetle(struct hive *hive, struct vec3 *pos)
+/*              ___
+ *          ___/   \___
+ *      ___/   \___/   \___
+ *     /   \___/   \___/   \
+ *     \___/           \___/
+ *     /   \               
+ *     \___/            ___
+ *     /   \___     ___/   \
+ *     \___/   \___/   \___/
+ *         \___/   \___/
+ *             \___/
+ *
+ * Beetle i like a queen except it may move on top of the hive.
+ * You may stack as many beetles as you want.  You do not need
+ * to be on the same level to move on top of one.
+ */
+
+void hive_movesforbeetle(struct hive *hive, struct vec3 *pos)
 {
 	const unsigned char
 		neigh = neigh_bitset(hive, pos, HIVE_WHITE | HIVE_BLACK);

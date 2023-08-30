@@ -61,12 +61,12 @@ int main(int argc, char *argv[])
 		c = getch();
 		if (c == 'q')
 			break;
-		if (c == -1) {
-			chat_update(&chat_term);
-			continue;
-		}
-		chat_handle(&chat_term, c);
-		continue;
+		// if (c == -1) {
+		// 	chat_update(&chat_term);
+		// 	continue;
+		// }
+		// chat_handle(&chat_term, c);
+		// continue;
 		if(all_states[cur_state].
 				state(all_states[cur_state].param, c) == 1) {
 			switch (c) {
@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
+		hive_render(&hive_game);
 	}
 
 	endwin();
