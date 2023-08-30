@@ -98,6 +98,17 @@ bool hive_one_hive(struct hive *hive, struct vec3 *pos)
 	}
 
 	/* TODO: add explanation for this?? */
+    /*
+        (Vaxeral)
+        The flood fill algorithm works by visiting adjacent
+        pieces and marking them so that they do not get put
+        back into the queue.  As it is a piece does not have
+        enough room for a flag to mark it as visited so i instead
+        mark each unique piece as visited. A unqiue piece is
+        the first 6 bits of the piece_t.  However you need an array
+        bigger than the inventory size becuase not every bit representation
+        of a piece_t can fit.
+    */
 	visited = malloc(HIVE_INVENTORY_SIZE);
 	visited[HIVE_GETNPIECE(piece)] = true;
 	count++;
