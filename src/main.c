@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 	mouseinterval(0);
 	start_color();
 	timeout(10);
-	//nodelay(stdscr, true);
+	// nodelay(stdscr, true);
 	init_pair(HIVE_PAIR_BLACK, COLOR_RED, COLOR_BLACK);
 	init_pair(HIVE_PAIR_WHITE, COLOR_BLUE, COLOR_BLACK);
 	init_pair(HIVE_PAIR_BLACK_WHITE, COLOR_RED, COLOR_BLUE);

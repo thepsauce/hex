@@ -1,4 +1,5 @@
 #include "hive.h"
+#include "stb_ds.h"
 
 int hive_init(struct hive *hive)
 {
@@ -74,44 +75,35 @@ piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos)
 	return piece;
 }
 
+static void hive_playmove(struct hive *hive, struct move *move)
+{
+	hive->grid[move->endPos.x +
+		       move->endPos.y * GRID_COLUMNS] = hive->selectedPiece;
+	hive->selectedPiece = 0;
+	hive->grid[move->startPos.x +
+		       move->startPos.y * GRID_COLUMNS] = 0;
+	/* startPos and endPos must differ.
+	 * If they are the same it is considered an accident and no move will be made.
+	 */
+	memset(&move->startPos, 0, sizeof(move->startPos));
+	memset(&move->endPos, 1, sizeof(move->endPos));
+}
+
 static void hive_handlemousepress(struct hive *hive, const struct vec3 *mp)
 {
 	struct vec3 pos;
+	struct move *pendingMove;
 
 	pos = *mp;
 	pos.x = pos.x / 4;
 	pos.y = (pos.y - (pos.x % 2)) / 2;
 	pos.z = 0;
-	if (pos.x != hive->selectedPos.x || pos.y != hive->selectedPos.y) {
+	pendingMove = &hive->pendingMove;
+	if (pos.x != pendingMove->endPos.x || pos.y != pendingMove->endPos.y) {
 		if (hive->selectedPiece) {
-			switch (HIVE_GETNTYPE(hive->selectedPiece)) {
-				case HIVE_QUEEN:
-					hive_movesforqueen(hive, &hive->selectedPos);
-					break;
-				case HIVE_BEETLE:
-					hive_movesforbeetle(hive, &hive->selectedPos);
-					break;
-				case HIVE_GRASSHOPPER:
-					hive_movesforgrasshopper(hive, &hive->selectedPos);
-					break;
-				case HIVE_SPIDER:
-					hive_movesforspider(hive, &hive->selectedPos);
-					break;
-				case HIVE_ANT:
-					hive_movesforant(hive, &hive->selectedPos);
-					break;
-				default:
-					perror("Unhandled");
-			}
-			hive->grid[pos.x + pos.y * GRID_COLUMNS] =
-				hive->selectedPiece;
-
-			hive->selectedPiece = 0;
-			hive->grid[hive->selectedPos.x +
-				hive->selectedPos.y * GRID_COLUMNS] = 0;
-			hive_render(hive);
+			pendingMove->endPos = pos;
 		} else {
-			hive->selectedPos = pos;
+			pendingMove->startPos = pos;
 			hive->selectedPiece = hive_getexposedpiece(hive, &pos);
 		}
 	}
@@ -135,6 +127,16 @@ int hive_handle(struct hive *hive, int c)
 			pos.x = pos.x + hive->winPos.x;
 			pos.y = pos.y + hive->winPos.y;
 			hive_handlemousepress(hive, &pos);
+
+			hive_generatemoves(hive);
+
+			for (int i = 0; i < arrlen(hive->validMoves); i++) {
+				struct move m = hive->validMoves[i];
+				if (memcmp(&m, &hive->pendingMove, sizeof(m)) == 0) {
+					hive_playmove(hive, &hive->pendingMove);
+					break;
+				}
+			}
 		}
 		break;
 	case 'd':

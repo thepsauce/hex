@@ -67,7 +67,7 @@ static unsigned char neigh_bitset(struct hive *hive,
 {
 	unsigned char neighBitset = 0;
 
-	for (int i = 0; i < 6; ++i) {
+	for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
 		struct vec3 neighPos;
 		
 		neighPos = vec_move(pos, i);
@@ -82,7 +82,6 @@ bool hive_can_place(struct hive *hive, struct vec3 *pos, piece_t piece)
 {
 	return neigh_bitset(hive, pos, HIVE_GETSIDE(piece));
 }
-
 
 bool hive_one_hive(struct hive *hive, struct vec3 *pos)
 {
@@ -114,7 +113,7 @@ bool hive_one_hive(struct hive *hive, struct vec3 *pos)
 	visited[HIVE_GETNPIECE(piece)] = true;
 	count++;
 
-	for (int i = 0; i < 6; i++) {
+	for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
 		adjPos = vec_move(pos, i);
 		adjPiece = hive_getabove(hive, &adjPos);
 		if (adjPiece) {
@@ -133,7 +132,7 @@ bool hive_one_hive(struct hive *hive, struct vec3 *pos)
 			count++;
 		}
 
-		for (int i = 0; i < 6; i++) {
+		for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
 			adjPos = vec_move(&pos, i);
 			adjPiece = hive->grid[adjPos.x + adjPos.y * GRID_COLUMNS];
 			if (adjPiece) {
@@ -163,61 +162,43 @@ static bool find_pos(const struct vec3 *posQueue, const struct vec3 *pos)
  * their respective function for getting the moves.
  */
 
-/*              ___
- *          ___/   \___
- *      ___/   \___/   \___
- *     /   \___/   \___/   \
- *     \___/           \___/
- *     /   \               
- *     \___/            ___
- *     /   \___     ___/   \
- *     \___/   \___/   \___/
- *         \___/   \___/
- *             \___/
- *
+/*
  * Ant can move any number of spaces along the hive.
  */
 
-void hive_movesforant(struct hive *hive, struct vec3 *pos)
+void hive_movesforant(struct hive *hive, const struct vec3 *startPos)
 {
 	struct vec3 *posQueue = NULL;
-	struct vec3 *movePos = NULL;
-	struct vec3 currentPos;
+	struct vec3 *posVisited = NULL;
+	arrput(posQueue, *startPos);
+	arrput(posVisited, *startPos);
 
-	arrput(posQueue, *pos);
 	while (arrlen(posQueue)) {
-		currentPos = arrpop(posQueue);
-
+		struct vec3 currentPos = arrpop(posQueue);
 		unsigned char
-			neigh = neigh_bitset(hive,
-					&currentPos, HIVE_WHITE | HIVE_BLACK),
+			neigh = neigh_bitset(hive, &currentPos, HIVE_WHITE | HIVE_BLACK);
+		unsigned char
 			slide = slide_bitset(neigh);
-		for (int i = 0; i < 6; i++) {
+
+		for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
 			if (slide & HIVE_DIRECTION_BIT(i)) {
-				const struct vec3 adjPos = vec_move(&currentPos, i);
-				if (find_pos(posQueue, &adjPos) == false) {
-					arrput(posQueue, adjPos);
-					arrput(movePos, adjPos);
+				const struct vec3 neighPos = vec_move(&currentPos, i);
+				if (find_pos(posVisited, &neighPos) == false) {
+					arrput(posVisited, neighPos);
+					arrput(posQueue, neighPos);
+					arrput(hive->validMoves, ((struct move){
+						.startPos = *startPos,
+						.endPos = neighPos
+					}));
 				}
 			}
 		}
 	}
+	arrfree(posVisited);
 	arrfree(posQueue);
-	arrfree(movePos);
 }
 
-/*              ___
- *          ___/   \___
- *      ___/   \___/   \___
- *     /   \___/   \___/   \
- *     \___/           \___/
- *     /   \               
- *     \___/            ___
- *     /   \___     ___/   \
- *     \___/   \___/   \___/
- *         \___/   \___/
- *             \___/
- *
+/*
  * Spider can move three spaces along the hive.  It must not backtrack.
  * 
  * (Note) The way i interpret backtracking
@@ -225,148 +206,186 @@ void hive_movesforant(struct hive *hive, struct vec3 *pos)
           slides to its immediate previous position.
  */
 
-void hive_movesforspider(struct hive *hive, struct vec3 *pos)
-{
-	/* FIXME: unused variables */
-	const unsigned char
-		neigh = neigh_bitset(hive, pos, HIVE_WHITE | HIVE_BLACK),
-		slide = slide_bitset(neigh);
-	struct node {
-		struct vec3 pos;
-		struct vec3 previousPos;
-		int depth;
-	} *nodeQueue = NULL;
-	struct vec3 *movePos = NULL;
+struct node {
+	struct vec3 pos;
+	struct vec3 previousPos;
+	int depth;
+};
 
-	arrput(nodeQueue,
-		((struct node) { *pos, (struct vec3) { 0, 0, 0 }, 0 }));
+bool vec_isequal(const struct vec3 *a, const struct vec3 *b)
+{
+	return (a->x == b->x) && (a->y == b->y) && (a->z == b->z);
+}
+
+static void add_neighbors(struct hive *hive, struct node **nodeQueue, const struct node *node)
+{
+	for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
+		const unsigned char
+			neigh = neigh_bitset(
+				hive, &node->pos, HIVE_WHITE | HIVE_BLACK);
+		const unsigned char
+			slide = slide_bitset(neigh);
+		if (slide & HIVE_DIRECTION_BIT(i)) {
+			struct vec3 neighPos = vec_move(&node->pos, i);
+			arrput(*nodeQueue, ((struct node){
+				.pos = neighPos,
+				.previousPos = node->pos,
+				.depth = 0
+			}));
+		}
+	}
+}
+
+static void branch(struct hive *hive, struct node **nodeQueue, const struct node *node)
+{
+	for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
+		const unsigned char
+			neigh = neigh_bitset(
+				hive, &node->pos, HIVE_WHITE | HIVE_BLACK);
+		const unsigned char
+			slide = slide_bitset(neigh);
+		if (slide & HIVE_DIRECTION_BIT(i)) {
+			struct vec3 neighPos = vec_move(&node->pos, i);
+			if (memcmp(&neighPos, &node->previousPos, sizeof(neighPos)) != 0) {
+				arrput(*nodeQueue, ((struct node){
+					.pos = neighPos,
+					.previousPos = node->pos,
+					.depth = node->depth + 1
+				}));
+			}
+		}
+	}
+}
+
+void hive_movesforspider(struct hive *hive, const struct vec3 *startPos)
+{
+	struct node *nodeQueue = NULL;
+
+	piece_t piece = hive->grid[startPos->x + startPos->y * GRID_COLUMNS];
+	hive->grid[startPos->x + startPos->y * GRID_COLUMNS] = 0;
+
+	add_neighbors(hive, &nodeQueue, &(struct node){
+		.pos = *startPos
+	});
 
 	while (arrlen(nodeQueue)) {
-		const struct node node = arrpop(nodeQueue);
-		if (node.depth == 2)
-			arrput(movePos, node.pos);
-
-		const unsigned char
-			neigh = neigh_bitset(hive,
-					&node.pos, HIVE_WHITE | HIVE_BLACK),
-			slide = slide_bitset(neigh);
-		for (int i = 0; i < 6; i++) {
-			if (slide & HIVE_DIRECTION_BIT(i)) {
-				const struct vec3 adjPos = vec_move(&node.pos, i);
-				if (memcmp(&adjPos, &node.previousPos,
-						sizeof(node.previousPos)) != 0) {
-					arrput(nodeQueue, ((struct node)
-					{ adjPos, node.pos, node.depth + 1 }));
-				}
-			}
+		const struct node
+			node = arrpop(nodeQueue);
+		if (node.depth == 2) {
+		    arrput(hive->validMoves, ((struct move){
+		        .startPos = *startPos,
+		        .endPos = node.pos
+		    }));
+			continue;
 		}
+		branch(hive, &nodeQueue, &node);
 	}
 	arrfree(nodeQueue);
-	arrfree(movePos);
+	hive->grid[startPos->x + startPos->y * GRID_COLUMNS] = piece;
 }
 
-/*              ___
- *          ___/   \___
- *      ___/   \___/   \___
- *     /   \___/   \___/   \
- *     \___/           \___/
- *     /   \               
- *     \___/            ___
- *     /   \___     ___/   \
- *     \___/   \___/   \___/
- *         \___/   \___/
- *             \___/
- *
+/*
  * Grasshopper can hop in a straight line over pieces directly in front of it.
- * It does not matter if it surrouned by other pieces.
+ * It does not matter if it is surrouned by other pieces.
  */
 
-void hive_movesforgrasshopper(struct hive *hive, struct vec3 *pos)
+void hive_movesforgrasshopper(struct hive *hive, const struct vec3 *startPos)
 {
-	struct vec3 *movePos = NULL;
-	struct vec3 adjPos;
-	piece_t adjPiece;
-
-	for (int i = 0; i < 6; i++) {
-		adjPos = vec_move(pos, i);
-		adjPiece = hive->grid[adjPos.x + adjPos.y * GRID_COLUMNS];
-		if (adjPiece) {
-			while (adjPiece) {
-				adjPos = vec_move(&adjPos, i);
-				adjPiece = hive->grid[adjPos.x +
-					adjPos.y * GRID_COLUMNS];
+	for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
+		struct vec3 neighPos = vec_move(startPos, i);
+		piece_t neighPiece = hive->grid[neighPos.x + neighPos.y * GRID_COLUMNS];
+		if (neighPiece) {
+			while (neighPiece) {
+				neighPos = vec_move(&neighPos, i);
+				neighPiece = hive->grid[neighPos.x +
+					neighPos.y * GRID_COLUMNS];
 			}
-			arrput(movePos, adjPos);
+			arrput(hive->validMoves, ((struct move){
+				.startPos = *startPos,
+				.endPos = neighPos
+			}));
 		}
 	}
-	arrfree(movePos);
 }
 
-/*              ___
- *          ___/   \___
- *      ___/   \___/   \___
- *     /   \___/   \___/   \
- *     \___/           \___/
- *     /   \               
- *     \___/            ___
- *     /   \___     ___/   \
- *     \___/   \___/   \___/
- *         \___/   \___/
- *             \___/
- *
- *  Queen can move one space long the hive.
+/*
+ *  Queen can move one space along the hive.
  */
 
-void hive_movesforqueen(struct hive *hive, struct vec3 *pos)
+void hive_movesforqueen(struct hive *hive, const struct vec3 *startPos)
 {
 	const unsigned char
-		neigh = neigh_bitset(hive, pos, HIVE_WHITE | HIVE_BLACK),
+		neigh = neigh_bitset(hive, startPos, HIVE_WHITE | HIVE_BLACK),
 		slide = slide_bitset(neigh);
-	struct vec3 *movePos = NULL;
 
 	for (int i = 0; i < 6; ++i) {
 		if (slide & HIVE_DIRECTION_BIT(i)) {
-			struct vec3 adjPos = vec_move(pos, i);
-			arrput(movePos, adjPos);
+			struct vec3 neighPos = vec_move(startPos, i);
+			arrput(hive->validMoves, ((struct move){
+				.startPos = *startPos,
+				.endPos = neighPos
+			}));
 		}
 	}
-	arrfree(movePos);
 }
 
-/*              ___
- *          ___/   \___
- *      ___/   \___/   \___
- *     /   \___/   \___/   \
- *     \___/           \___/
- *     /   \               
- *     \___/            ___
- *     /   \___     ___/   \
- *     \___/   \___/   \___/
- *         \___/   \___/
- *             \___/
- *
+/*
  * Beetle is like a queen except it may move on top of the hive.
- * You may stack as many beetles as you want.  You do not need
- * to be on the same level to move on top of one.
+ * You may stack as many beetles as you want.  You need not be
+ * on the same level to move on top of one.
  */
 
-void hive_movesforbeetle(struct hive *hive, struct vec3 *pos)
+void hive_movesforbeetle(struct hive *hive, const struct vec3 *startPos)
 {
+	struct vec3 stackPos = *startPos;
 	const unsigned char
-		neigh = neigh_bitset(hive, pos, HIVE_WHITE | HIVE_BLACK);
+		neigh = neigh_bitset(hive, &stackPos, HIVE_WHITE | HIVE_BLACK);
 	unsigned char slide; /* the beetle is special because it can be on top */
-	struct vec3 *movePos = NULL;
-	const piece_t piece = hive_getexposedpiece(hive, pos);
+	const piece_t
+		piece = hive_getexposedpiece(hive, &stackPos);
 
-	if (pos->z > 0)
+	if (startPos->z > 0)
 		slide = HIVE_ALL_DIRECTIONS;
 	else
-		slide = slide_bitset(neigh) & neigh;
-	for (int i = 0; i < 6; i++) {
+		slide = slide_bitset(neigh) | neigh;
+	for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
 		if (slide & HIVE_DIRECTION_BIT(i)) {
-			const struct vec3 adjPos = vec_move(pos, i);
-			arrput(movePos, adjPos);
+			const struct vec3 neighPos = vec_move(startPos, i);
+			arrput(hive->validMoves, ((struct move){
+				.startPos = *startPos,
+				.endPos = neighPos
+			}));
 		}
 	}
-	arrfree(movePos);
+}
+
+void hive_generatemoves(struct hive *hive)
+{
+	arrsetlen(hive->validMoves, 0);
+	for (int x = 0; x < GRID_COLUMNS; x++) {
+		for (int y = 0; y < GRID_ROWS; y++) {
+			piece_t piece =
+				hive->grid[x + y * GRID_COLUMNS];
+			const struct vec3 pos = {
+				x, y, 0
+			};
+			switch (HIVE_GETNTYPE(piece)) {
+			case HIVE_QUEEN:
+				hive_movesforqueen(hive, &pos);
+				break;
+			case HIVE_BEETLE:
+				hive_movesforbeetle(hive, &pos);
+				break;
+			case HIVE_GRASSHOPPER:
+				hive_movesforgrasshopper(hive, &pos);
+				break;
+			case HIVE_SPIDER:
+				hive_movesforspider(hive, &pos);
+				break;
+			case HIVE_ANT:
+				hive_movesforant(hive, &pos);
+				break;
+			}
+		}
+	}
 }

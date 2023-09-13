@@ -59,6 +59,7 @@ enum hive_direction {
 	HIVE_NORTH_WEST,
 	HIVE_SOUTH_WEST,
 	HIVE_SOUTH,
+	HIVE_DIRECTION_COUNT
 };
 
 typedef char piece_t;
@@ -96,6 +97,11 @@ struct window {
 	struct state *state;
 };
 
+struct move {
+	struct vec3 startPos;
+	struct vec3 endPos;
+};
+
 struct hive {
 	WINDOW *win;
 	struct vec3 winPos;
@@ -103,8 +109,9 @@ struct hive {
 	enum hive_type whiteInventory[HIVE_INVENTORY_SIZE];
 	enum hive_type blackInventory[HIVE_INVENTORY_SIZE];
 	piece_t selectedPiece;
-	struct vec3 selectedPos;
+	struct move pendingMove;
 	int piecesPlayed;
+	struct move *validMoves;
 	piece_t grid[GRID_COLUMNS * GRID_ROWS];
 	struct {
 		struct vec3 pos;
@@ -121,10 +128,11 @@ piece_t hive_getabove(struct hive *hive, const struct vec3 *pos);
 void hive_render(struct hive *hive);
 int hive_handle(struct hive *hive, int c);
 
-void hive_movesforant(struct hive *hive, struct vec3 *pos);
-void hive_movesforbeetle(struct hive *hive, struct vec3 *pos);
-void hive_movesforspider(struct hive *hive, struct vec3 *pos);
-void hive_movesforgrasshopper(struct hive *hive, struct vec3 *pos);
-void hive_movesforqueen(struct hive *hive, struct vec3 *pos);
+void hive_movesforant(struct hive *hive, const struct vec3 *startPos);
+void hive_movesforbeetle(struct hive *hive, const struct vec3 *startPos);
+void hive_movesforspider(struct hive *hive, const struct vec3 *startPos);
+void hive_movesforgrasshopper(struct hive *hive, const struct vec3 *startPos);
+void hive_movesforqueen(struct hive *hive, const struct vec3 *startPos);
+void hive_generatemoves(struct hive *hive);
 
 #endif
