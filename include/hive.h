@@ -63,6 +63,7 @@ enum hive_direction {
 };
 
 typedef char piece_t;
+typedef int stack_t;
 
 enum hive_type {
 	HIVE_EMPTY,
@@ -117,6 +118,7 @@ struct hive {
 		struct vec3 pos;
 		piece_t above;
 	} stacks[HIVE_STACK_SIZE];
+	stack_t *freeStacks;
 };
 
 struct vec3 vec_move(const struct vec3 *vec, enum hive_direction dir);

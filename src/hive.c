@@ -51,40 +51,23 @@ int hive_init(struct hive *hive)
 		hive->grid[pos.x + pos.y * GRID_COLUMNS] = t | s;
 		pos = vec_move(&pos, rand() % 6);
 	}
-	hive_render(hive);
 	return 0;
 }
 
-piece_t hive_getabove(struct hive *hive, const struct vec3 *pos)
-{
-	for (int i = 0; i < HIVE_STACK_SIZE; i++)
-		if (memcmp(&hive->stacks[i].pos, pos, sizeof(*pos)) == 0)
-			return hive->stacks[i].above;
-	return 0;
-}
+piece_t hive_getbelow(struct hive*)
 
-piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos)
+void hive_popstack(struct hive *hive, struct vec3 *pos)
 {
-	piece_t piece;
 
-	piece = hive->grid[pos->x + pos->y * GRID_COLUMNS];
-	while (piece & HIVE_ABOVE) {
-		piece = hive_getabove(hive, pos);
-		pos->z++;
-	}
-	return piece;
 }
 
 static void hive_playmove(struct hive *hive, struct move *move)
 {
-	hive->grid[move->endPos.x +
-		       move->endPos.y * GRID_COLUMNS] = hive->selectedPiece;
-	hive->selectedPiece = 0;
-	hive->grid[move->startPos.x +
-		       move->startPos.y * GRID_COLUMNS] = 0;
 	/* startPos and endPos must differ.
 	 * If they are the same it is considered an accident and no move will be made.
 	 */
+
+	hive->selectedPiece = 0;
 	memset(&move->startPos, 0, sizeof(move->startPos));
 	memset(&move->endPos, 1, sizeof(move->endPos));
 }
@@ -92,13 +75,13 @@ static void hive_playmove(struct hive *hive, struct move *move)
 static void hive_handlemousepress(struct hive *hive, const struct vec3 *mp)
 {
 	struct vec3 pos;
-	struct move *pendingMove;
+	struct move *pendingMove =
+		&hive->pendingMove;
 
 	pos = *mp;
 	pos.x = pos.x / 4;
 	pos.y = (pos.y - (pos.x % 2)) / 2;
 	pos.z = 0;
-	pendingMove = &hive->pendingMove;
 	if (pos.x != pendingMove->endPos.x || pos.y != pendingMove->endPos.y) {
 		if (hive->selectedPiece) {
 			pendingMove->endPos = pos;

@@ -78,7 +78,7 @@ static unsigned char neigh_bitset(struct hive *hive,
 	return neighBitset;
 }
 
-bool hive_can_place(struct hive *hive, struct vec3 *pos, piece_t piece)
+bool hive_canplace(struct hive *hive, struct vec3 *pos, piece_t piece)
 {
 	return neigh_bitset(hive, pos, HIVE_GETSIDE(piece));
 }
@@ -162,16 +162,17 @@ static bool find_pos(const struct vec3 *posQueue, const struct vec3 *pos)
  * their respective function for getting the moves.
  */
 
-/*
- * Ant can move any number of spaces along the hive.
+/* Ant can move any number of spaces along the hive.
  */
-
 void hive_movesforant(struct hive *hive, const struct vec3 *startPos)
 {
 	struct vec3 *posQueue = NULL;
 	struct vec3 *posVisited = NULL;
 	arrput(posQueue, *startPos);
 	arrput(posVisited, *startPos);
+
+	piece_t piece = hive->grid[startPos->x + startPos->y * GRID_COLUMNS];
+	hive->grid[startPos->x + startPos->y * GRID_COLUMNS] = 0;
 
 	while (arrlen(posQueue)) {
 		struct vec3 currentPos = arrpop(posQueue);
@@ -182,7 +183,8 @@ void hive_movesforant(struct hive *hive, const struct vec3 *startPos)
 
 		for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
 			if (slide & HIVE_DIRECTION_BIT(i)) {
-				const struct vec3 neighPos = vec_move(&currentPos, i);
+				const struct vec3 
+					neighPos = vec_move(&currentPos, i);
 				if (find_pos(posVisited, &neighPos) == false) {
 					arrput(posVisited, neighPos);
 					arrput(posQueue, neighPos);
@@ -194,16 +196,12 @@ void hive_movesforant(struct hive *hive, const struct vec3 *startPos)
 			}
 		}
 	}
+	hive->grid[startPos->x + startPos->y * GRID_COLUMNS] = piece;
 	arrfree(posVisited);
 	arrfree(posQueue);
 }
 
-/*
- * Spider can move three spaces along the hive.  It must not backtrack.
- * 
- * (Note) The way i interpret backtracking
-          is if the piece midway through its move
-          slides to its immediate previous position.
+/* Spider can move three spaces along the hive.  It must not backtrack.
  */
 
 struct node {
@@ -280,8 +278,8 @@ void hive_movesforspider(struct hive *hive, const struct vec3 *startPos)
 		}
 		branch(hive, &nodeQueue, &node);
 	}
-	arrfree(nodeQueue);
 	hive->grid[startPos->x + startPos->y * GRID_COLUMNS] = piece;
+	arrfree(nodeQueue);
 }
 
 /*
