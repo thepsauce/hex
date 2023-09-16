@@ -25,19 +25,20 @@
 
 #define HIVE_TYPE_MASK	0x0f
 #define HIVE_SIDE_MASK	0x30
-#define HIVE_PIECE_MASK 0x3f
 #define HIVE_STACK_MASK	0xc0
+#define HIVE_PIECE_MASK 0x3f
 
 /* These macros give normalized results, do not compare
  * HIVE_GETNSIDE with HIVE_WHITE or HIVE_BLACK.
  * Instead use HIVE_GETSIDE to get the real value.
  */
-#define HIVE_GETNPIECE(p) ((p) & HIVE_PIECE_MASK)
 #define HIVE_GETNTYPE(p) ((p) & HIVE_TYPE_MASK)
 #define HIVE_GETNSIDE(p) (((p) & HIVE_SIDE_MASK) >> 4)
 
 #define HIVE_GETTYPE(p) ((p) & HIVE_TYPE_MASK)
 #define HIVE_GETSIDE(p) ((p) & HIVE_SIDE_MASK)
+
+#define HIVE_STACK_NULL -1
 
 enum hive_color_pair {
 	HIVE_PAIR_BLACK = 1,
@@ -63,7 +64,7 @@ enum hive_direction {
 };
 
 typedef char piece_t;
-typedef int stack_t;
+typedef char stack_t;
 
 enum hive_type {
 	HIVE_EMPTY,
@@ -118,17 +119,18 @@ struct hive {
 		struct vec3 pos;
 		piece_t above;
 	} stacks[HIVE_STACK_SIZE];
-	stack_t *freeStacks;
+	int stackSz;
 };
 
 struct vec3 vec_move(const struct vec3 *vec, enum hive_direction dir);
 enum hive_direction vec_getdir(const struct vec3 *a, const struct vec3 *b);
 
 int hive_init(struct hive *hive);
-piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos);
-piece_t hive_getabove(struct hive *hive, const struct vec3 *pos);
 void hive_render(struct hive *hive);
 int hive_handle(struct hive *hive, int c);
+
+piece_t hive_getabove(struct hive *hive, struct vec3 *pos);
+piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos);
 
 void hive_movesforant(struct hive *hive, const struct vec3 *startPos);
 void hive_movesforbeetle(struct hive *hive, const struct vec3 *startPos);
@@ -136,5 +138,7 @@ void hive_movesforspider(struct hive *hive, const struct vec3 *startPos);
 void hive_movesforgrasshopper(struct hive *hive, const struct vec3 *startPos);
 void hive_movesforqueen(struct hive *hive, const struct vec3 *startPos);
 void hive_generatemoves(struct hive *hive);
+bool hive_canplace(struct hive *hive, const struct vec3 *pos, piece_t piece);
+
 
 #endif

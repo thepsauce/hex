@@ -65,20 +65,22 @@ static unsigned char slide_bitset(unsigned char neigh)
 static unsigned char neigh_bitset(struct hive *hive,
 		const struct vec3 *pos, enum hive_side side)
 {
+	stack_t stack;
 	unsigned char neighBitset = 0;
 
 	for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
 		struct vec3 neighPos;
 		
 		neighPos = vec_move(pos, i);
-		const piece_t neighPiece = hive_getexposedpiece(hive, &neighPos);
+		const piece_t neighPiece =
+			hive_getexposedpiece(hive, &neighPos);
 		if (neighPiece & side)
 			neighBitset |= HIVE_DIRECTION_BIT(i);
 	}
 	return neighBitset;
 }
 
-bool hive_canplace(struct hive *hive, struct vec3 *pos, piece_t piece)
+bool hive_canplace(struct hive *hive, const struct vec3 *pos, piece_t piece)
 {
 	return neigh_bitset(hive, pos, HIVE_GETSIDE(piece));
 }
@@ -110,7 +112,7 @@ bool hive_one_hive(struct hive *hive, struct vec3 *pos)
         of a piece_t can fit.
     */
 	visited = malloc(HIVE_INVENTORY_SIZE);
-	visited[HIVE_GETNPIECE(piece)] = true;
+	visited[piece & HIVE_PIECE_MASK] = true;
 	count++;
 
 	for (int i = 0; i < HIVE_DIRECTION_COUNT; i++) {
@@ -127,8 +129,8 @@ bool hive_one_hive(struct hive *hive, struct vec3 *pos)
 
 		pos = arrpop(posQueue);
 		piece = hive->grid[pos.x + pos.y * GRID_COLUMNS];
-		if (!visited[HIVE_GETNPIECE(piece)]) {
-			visited[HIVE_GETNPIECE(piece)] = true;
+		if (!visited[piece & HIVE_PIECE_MASK]) {
+			visited[piece & HIVE_PIECE_MASK] = true;
 			count++;
 		}
 
@@ -339,10 +341,10 @@ void hive_movesforbeetle(struct hive *hive, const struct vec3 *startPos)
 	const unsigned char
 		neigh = neigh_bitset(hive, &stackPos, HIVE_WHITE | HIVE_BLACK);
 	unsigned char slide; /* the beetle is special because it can be on top */
-	const piece_t
-		piece = hive_getexposedpiece(hive, &stackPos);
 
-	if (startPos->z > 0)
+	stack_t stack;
+
+	if (stack != HIVE_STACK_NULL)
 		slide = HIVE_ALL_DIRECTIONS;
 	else
 		slide = slide_bitset(neigh) | neigh;
