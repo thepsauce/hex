@@ -38,8 +38,6 @@
 #define HIVE_GETTYPE(p) ((p) & HIVE_TYPE_MASK)
 #define HIVE_GETSIDE(p) ((p) & HIVE_SIDE_MASK)
 
-#define HIVE_STACK_NULL -1
-
 enum hive_color_pair {
 	HIVE_PAIR_BLACK = 1,
 	HIVE_PAIR_WHITE = 2,
@@ -73,10 +71,10 @@ enum hive_type {
 	HIVE_GRASSHOPPER,
 	HIVE_SPIDER,
 	HIVE_ANT,
+	HIVE_TYPES,
 	HIVE_LADYBUG,
 	HIVE_MOSQUITO,
 	HIVE_PILLBUG,
-	HIVE_TYPES,
 };
 
 enum hive_side {
@@ -86,8 +84,9 @@ enum hive_side {
 
 enum hive_stack {
 	HIVE_ABOVE = 0x40,
-	HIVE_BELOW = 0x80,
+	HIVE_VISIT = 0x80,
 };
+
 
 struct state {
 	int (*state)(void *param, int c);
@@ -102,11 +101,13 @@ struct window {
 struct move {
 	struct vec3 startPos;
 	struct vec3 endPos;
+	piece_t piece;
 };
 
 struct hive {
 	WINDOW *win;
 	struct vec3 winPos;
+	struct vec3 winSize;
 	enum hive_side turn;
 	enum hive_type whiteInventory[HIVE_INVENTORY_SIZE];
 	enum hive_type blackInventory[HIVE_INVENTORY_SIZE];
@@ -115,9 +116,10 @@ struct hive {
 	int piecesPlayed;
 	struct move *validMoves;
 	piece_t grid[GRID_COLUMNS * GRID_ROWS];
+	bool playMove;
 	struct {
 		struct vec3 pos;
-		piece_t above;
+		piece_t piece;
 	} stacks[HIVE_STACK_SIZE];
 	int stackSz;
 };
@@ -131,7 +133,9 @@ int hive_handle(struct hive *hive, int c);
 
 piece_t hive_getabove(struct hive *hive, struct vec3 *pos);
 piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos);
+bool hive_onehive(struct hive *hive, const struct vec3 *startPos);
 
+bool hive_playmove(struct hive *hive, struct move *move);
 void hive_movesforant(struct hive *hive, const struct vec3 *startPos);
 void hive_movesforbeetle(struct hive *hive, const struct vec3 *startPos);
 void hive_movesforspider(struct hive *hive, const struct vec3 *startPos);
@@ -139,6 +143,5 @@ void hive_movesforgrasshopper(struct hive *hive, const struct vec3 *startPos);
 void hive_movesforqueen(struct hive *hive, const struct vec3 *startPos);
 void hive_generatemoves(struct hive *hive);
 bool hive_canplace(struct hive *hive, const struct vec3 *pos, piece_t piece);
-
 
 #endif
