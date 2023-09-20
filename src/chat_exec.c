@@ -1,4 +1,4 @@
-#include "hive.h"
+#include "hex.h"
 
 void *chat_setuser(void *arg)
 {

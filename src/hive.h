@@ -1,23 +1,6 @@
-#ifndef INCLUDED_HIVE_H
-#define INCLUDED_HIVE_H
-
-#include <assert.h>
-#include <ctype.h>
-#include <curses.h>
-#include <locale.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-
-#include "net.h"
-#include "chat.h"
-
-#define ARRLEN(a) (sizeof(a)/sizeof*(a))
-
-#define GRID_COLUMNS 127
-#define GRID_ROWS 127
-#define GRID_SPACES (GRID_COLUMNS * GRID_ROWS)
+#define HIVE_GRID_COLUMNS 127
+#define HIVE_GRID_ROWS 127
+#define HIVE_GRID_SPACES (HIVE_GRID_COLUMNS * HIVE_GRID_ROWS)
 
 #define HIVE_INVENTORY_SIZE 28
 
@@ -62,31 +45,24 @@ enum hive_direction {
 };
 
 typedef char piece_t;
-typedef char stack_t;
 
-enum hive_type {
-	HIVE_EMPTY,
-	HIVE_QUEEN,
-	HIVE_BEETLE,
-	HIVE_GRASSHOPPER,
-	HIVE_SPIDER,
-	HIVE_ANT,
-	HIVE_TYPES,
-	HIVE_LADYBUG,
-	HIVE_MOSQUITO,
-	HIVE_PILLBUG,
-};
+#define HIVE_EMPTY 0x00
+#define HIVE_QUEEN 0x01
+#define HIVE_BEETLE 0x02
+#define HIVE_GRASSHOPPER 0x03
+#define HIVE_SPIDER 0x04
+#define HIVE_ANT 0x05
+#define HIVE_TYPES 0x06
+#define HIVE_LADYBUG 0x07
+#define HIVE_MOSQUITO 0x08
+#define HIVE_PILLBUG 0x09
 
-enum hive_side {
-	HIVE_BLACK = 0x10,
-	HIVE_WHITE = 0x20,
-};
+#define HIVE_BLACK 0x10
+#define HIVE_WHITE 0x20
 
-enum hive_stack {
-	HIVE_ABOVE = 0x40,
-	HIVE_VISIT = 0x80,
-};
-
+#define HIVE_ABOVE 0x40
+/* Temporary flag */
+#define HIVE_VISIT 0x80
 
 struct state {
 	int (*state)(void *param, int c);
@@ -108,14 +84,14 @@ struct hive {
 	WINDOW *win;
 	struct vec3 winPos;
 	struct vec3 winSize;
-	enum hive_side turn;
-	enum hive_type whiteInventory[HIVE_INVENTORY_SIZE];
-	enum hive_type blackInventory[HIVE_INVENTORY_SIZE];
+	piece_t turn;
+	piece_t whiteInventory[HIVE_INVENTORY_SIZE];
+	piece_t blackInventory[HIVE_INVENTORY_SIZE];
 	piece_t selectedPiece;
 	struct move pendingMove;
 	int piecesPlayed;
 	struct move *validMoves;
-	piece_t grid[GRID_COLUMNS * GRID_ROWS];
+	piece_t grid[HIVE_GRID_COLUMNS * HIVE_GRID_ROWS];
 	bool playMove;
 	struct {
 		struct vec3 pos;
@@ -144,4 +120,3 @@ void hive_movesforqueen(struct hive *hive, const struct vec3 *startPos);
 void hive_generatemoves(struct hive *hive);
 bool hive_canplace(struct hive *hive, const struct vec3 *pos, piece_t piece);
 
-#endif

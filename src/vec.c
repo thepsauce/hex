@@ -1,4 +1,4 @@
-#include "hive.h"
+#include "hex.h"
 
 const struct vec3 dir_offsets[2][6] = {
 	{

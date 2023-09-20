@@ -1,4 +1,4 @@
-#include "hive.h"
+#include "hex.h"
 
 void chat_sendmessage(struct chat *chat)
 {

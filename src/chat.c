@@ -1,4 +1,4 @@
-#include "hive.h"
+#include "hex.h"
 
 static bool chat_iscommand(struct chat *chat)
 {

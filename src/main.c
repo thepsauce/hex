@@ -1,4 +1,4 @@
-#include "hive.h"
+#include "hex.h"
 
 struct hive hive_game;
 

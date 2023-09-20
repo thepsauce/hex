@@ -1,9 +1,9 @@
-#include "hive.h"
+#include "hex.h"
 #include "stb_ds.h"
 
 int hive_init(struct hive *hive)
 {
-	static const enum hive_type defaultInventory[HIVE_INVENTORY_SIZE] = {
+	static const piece_t defaultInventory[HIVE_INVENTORY_SIZE] = {
 		HIVE_QUEEN,
 		HIVE_BEETLE,
 		HIVE_BEETLE,
@@ -35,15 +35,15 @@ int hive_init(struct hive *hive)
 	};
 
 	memset(hive, 0, sizeof(*hive));
-	if ((hive->win = newpad(GRID_ROWS * 2, GRID_COLUMNS * 4)) == NULL)
+	if ((hive->win = newpad(HIVE_GRID_ROWS * 2, HIVE_GRID_COLUMNS * 4)) == NULL)
 		return -1;
 	hive->turn = HIVE_BLACK;
 	memcpy(&hive->blackInventory,
 		defaultInventory, sizeof(defaultInventory));
 	memcpy(&hive->whiteInventory,
 		defaultInventory, sizeof(defaultInventory));
-	hive->winPos.x = (GRID_COLUMNS / 2) * 4 - COLS / 4 + 1;
-	hive->winPos.y = (GRID_ROWS / 2) * 2 - LINES / 2 + 1;
+	hive->winPos.x = (HIVE_GRID_COLUMNS / 2) * 4 - COLS / 4 + 1;
+	hive->winPos.y = (HIVE_GRID_ROWS / 2) * 2 - LINES / 2 + 1;
 	hive->winSize.x = (COLS - 1) / 2;
 	hive->winSize.y = LINES - 1;
 
@@ -51,9 +51,9 @@ int hive_init(struct hive *hive)
 	srand(time(NULL));
 
 	/* test setup */
-	struct vec3 pos = { GRID_COLUMNS / 2, GRID_ROWS / 2, 0 };
-	hive_playmove(hive, &(struct move){
-		.startPos = (struct vec3){ -1, -1, -1 },
+	struct vec3 pos = { HIVE_GRID_COLUMNS / 2, HIVE_GRID_ROWS / 2, 0 };
+	hive_playmove(hive, &(struct move) {
+		.startPos = (struct vec3) { -1, -1, -1 },
 		.endPos = pos,
 		.piece = HIVE_WHITE | HIVE_QUEEN
 	});
@@ -62,7 +62,7 @@ int hive_init(struct hive *hive)
 	return 0;
 }
 
-stack_t hive_getabovestack(struct hive *hive, const struct vec3 *pos)
+int hive_getabovestack(struct hive *hive, const struct vec3 *pos)
 {
 	for (int i = 0; i < hive->stackSz; i++)
 		if (memcmp(&hive->stacks[i].pos, pos, sizeof *pos) == 0)
@@ -80,9 +80,9 @@ piece_t hive_getabove(struct hive *hive, struct vec3 *pos)
 
 piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos)
 {
-	piece_t piece =
-		hive->grid[pos->x + pos->y * GRID_COLUMNS];
-
+	piece_t piece;
+	
+	piece = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
 	while (piece & HIVE_ABOVE) {
 		piece = hive_getabove(hive, pos);
 		pos->z++;
@@ -100,7 +100,7 @@ void hive_stack(struct hive *hive, const struct vec3 *pos, piece_t piece)
 
 void hive_unstack(struct hive *hive, const struct vec3 *pos)
 {
-	stack_t stack;
+	int stack;
 
 	assert(hive->stackSz > 0);
 
@@ -118,12 +118,12 @@ void hive_toggle(struct hive *hive, const struct vec3 *pos, piece_t bits)
 			return;
 		}
 	/* else */
-	hive->grid[pos->x + pos->y * GRID_COLUMNS] ^= bits;
+	hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS] ^= bits;
 }
 
 void hive_putpiece(struct hive *hive, struct vec3 *pos, piece_t piece)
 {
-	piece_t below = hive->grid[pos->x + pos->y * GRID_COLUMNS];
+	piece_t below = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
 
 	if(below) {
 		int z = -1;
@@ -138,12 +138,12 @@ void hive_putpiece(struct hive *hive, struct vec3 *pos, piece_t piece)
 
 		hive_stack(hive, pos, piece);
 	} else
-		hive->grid[pos->x + pos->y * GRID_COLUMNS] = piece;
+		hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS] = piece;
 }
 
 void hive_delpiece(struct hive *hive, struct vec3 *pos)
 {
-	piece_t below = hive->grid[pos->x + pos->y * GRID_COLUMNS];
+	piece_t below = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
 
 	if (below) {
 		int z = -1;
@@ -153,7 +153,7 @@ void hive_delpiece(struct hive *hive, struct vec3 *pos)
 		}
 
 		if (z == -1) {
-			hive->grid[pos->x + pos->y * GRID_COLUMNS] = 0;
+			hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS] = 0;
 			return;
 		}
 
@@ -187,9 +187,9 @@ static void hive_handlemousepress(struct hive *hive, const struct vec3 *mp)
 	}
 }
 
-bool hive_haspiece(struct hive *hive, enum hive_type type, enum hive_side side)
+bool hive_haspiece(struct hive *hive, piece_t type, piece_t side)
 {
-	enum hive_type *inventory = NULL;
+	piece_t *inventory = NULL;
 	if (side & HIVE_WHITE)
 		inventory = hive->whiteInventory;
 	else
@@ -328,10 +328,10 @@ void hive_render(struct hive *hive)
 	WINDOW *const win = hive->win;
 
 	werase(win);
-	for (pos.y = 0; pos.y < GRID_ROWS; pos.y++)
-		for (pos.x = 0; pos.x < GRID_COLUMNS; pos.x++) {
+	for (pos.y = 0; pos.y < HIVE_GRID_ROWS; pos.y++)
+		for (pos.x = 0; pos.x < HIVE_GRID_COLUMNS; pos.x++) {
 			piece_t piece;
-			enum hive_type type;
+			piece_t type;
 
 			world.x = pos.x * 4;
 			world.y = pos.y * 2 + pos.x % 2;
@@ -342,12 +342,12 @@ void hive_render(struct hive *hive)
 			if (type == HIVE_EMPTY)
 				continue;
 
-			const enum hive_side side = HIVE_GETSIDE(piece);
+			const piece_t side = HIVE_GETSIDE(piece);
 			wattr_set(win, A_REVERSE, side == HIVE_WHITE ?
 				HIVE_PAIR_WHITE : HIVE_PAIR_BLACK, NULL);
 
 			mvwprintw(win, world.y, world.x + 1,
-				" %s ", pieceNames[type]);
+				" %s ", pieceNames[(int) type]);
 			mvwprintw(win, world.y + 1, world.x + 1,
 				"%s", "   ");
 
