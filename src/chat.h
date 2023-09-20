@@ -1,8 +1,3 @@
-/* This file should not be included anywhere, use
- * #include "hive.h"
- * instead.
- */
-
 #include <pthread.h>
 #include <errno.h>
 #include <stdarg.h>
