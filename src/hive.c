@@ -1,9 +1,9 @@
 #include "hex.h"
 #include "stb_ds.h"
 
-int hive_init(struct hive *hive)
+int hive_init(Hive *hive)
 {
-	static const piece_t defaultInventory[HIVE_INVENTORY_SIZE] = {
+	static const hive_piece_t defaultInventory[HIVE_INVENTORY_SIZE] = {
 		HIVE_QUEEN,
 		HIVE_BEETLE,
 		HIVE_BEETLE,
@@ -51,9 +51,9 @@ int hive_init(struct hive *hive)
 	srand(time(NULL));
 
 	/* test setup */
-	struct vec3 pos = { HIVE_GRID_COLUMNS / 2, HIVE_GRID_ROWS / 2, 0 };
+	Vec3 pos = { HIVE_GRID_COLUMNS / 2, HIVE_GRID_ROWS / 2, 0 };
 	hive_playmove(hive, &(struct move) {
-		.startPos = (struct vec3) { -1, -1, -1 },
+		.startPos = (Vec3) { -1, -1, -1 },
 		.endPos = pos,
 		.piece = HIVE_WHITE | HIVE_QUEEN
 	});
@@ -62,7 +62,7 @@ int hive_init(struct hive *hive)
 	return 0;
 }
 
-int hive_getabovestack(struct hive *hive, const struct vec3 *pos)
+int hive_getabovestack(Hive *hive, const Vec3 *pos)
 {
 	for (int i = 0; i < hive->stackSz; i++)
 		if (memcmp(&hive->stacks[i].pos, pos, sizeof *pos) == 0)
@@ -70,7 +70,7 @@ int hive_getabovestack(struct hive *hive, const struct vec3 *pos)
 	return 0;
 }
 
-piece_t hive_getabove(struct hive *hive, struct vec3 *pos)
+hive_piece_t hive_getabove(Hive *hive, Vec3 *pos)
 {
 	for (int i = 0; i < hive->stackSz; i++)
 		if (memcmp(&hive->stacks[i].pos, pos, sizeof *pos) == 0)
@@ -78,9 +78,9 @@ piece_t hive_getabove(struct hive *hive, struct vec3 *pos)
 	return 0;
 }
 
-piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos)
+hive_piece_t hive_getexposedpiece(Hive *hive, Vec3 *pos)
 {
-	piece_t piece;
+	hive_piece_t piece;
 	
 	piece = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
 	while (piece & HIVE_ABOVE) {
@@ -90,7 +90,7 @@ piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos)
 	return piece;
 }
 
-void hive_stack(struct hive *hive, const struct vec3 *pos, piece_t piece)
+void hive_stack(Hive *hive, const Vec3 *pos, hive_piece_t piece)
 {
 	assert(hive->stackSz < HIVE_STACK_SIZE);
 	hive->stacks[hive->stackSz].pos = *pos;
@@ -98,7 +98,7 @@ void hive_stack(struct hive *hive, const struct vec3 *pos, piece_t piece)
 	hive->stackSz++;
 }
 
-void hive_unstack(struct hive *hive, const struct vec3 *pos)
+void hive_unstack(Hive *hive, const Vec3 *pos)
 {
 	int stack;
 
@@ -110,7 +110,7 @@ void hive_unstack(struct hive *hive, const struct vec3 *pos)
 		&hive->stacks[hive->stackSz], sizeof *hive->stacks);
 }
 
-void hive_toggle(struct hive *hive, const struct vec3 *pos, piece_t bits)
+void hive_toggle(Hive *hive, const Vec3 *pos, hive_piece_t bits)
 {
 	for (int i = 0; i < hive->stackSz; i++)
 		if (memcmp(&hive->stacks[i].pos, pos, sizeof *pos) == 0) {
@@ -121,9 +121,9 @@ void hive_toggle(struct hive *hive, const struct vec3 *pos, piece_t bits)
 	hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS] ^= bits;
 }
 
-void hive_putpiece(struct hive *hive, struct vec3 *pos, piece_t piece)
+void hive_putpiece(Hive *hive, Vec3 *pos, hive_piece_t piece)
 {
-	piece_t below = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
+	hive_piece_t below = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
 
 	if(below) {
 		int z = -1;
@@ -132,7 +132,7 @@ void hive_putpiece(struct hive *hive, struct vec3 *pos, piece_t piece)
 			z = pos->z++;
 		}
 
-		hive_toggle(hive, &(struct vec3){
+		hive_toggle(hive, &(Vec3){
 			pos->x, pos->y, z
 		}, HIVE_ABOVE);
 
@@ -141,9 +141,9 @@ void hive_putpiece(struct hive *hive, struct vec3 *pos, piece_t piece)
 		hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS] = piece;
 }
 
-void hive_delpiece(struct hive *hive, struct vec3 *pos)
+void hive_delpiece(Hive *hive, Vec3 *pos)
 {
-	piece_t below = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
+	hive_piece_t below = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
 
 	if (below) {
 		int z = -1;
@@ -157,7 +157,7 @@ void hive_delpiece(struct hive *hive, struct vec3 *pos)
 			return;
 		}
 
-		hive_toggle(hive, &(struct vec3){
+		hive_toggle(hive, &(Vec3){
 			pos->x, pos->y, z - 1
 		}, HIVE_ABOVE);
 
@@ -167,9 +167,9 @@ void hive_delpiece(struct hive *hive, struct vec3 *pos)
 	}
 }
 
-static void hive_handlemousepress(struct hive *hive, const struct vec3 *mp)
+static void hive_handlemousepress(Hive *hive, const Vec3 *mp)
 {
-	struct vec3 pos;
+	Vec3 pos;
 
 	pos = *mp;
 	pos.x = pos.x / 4;
@@ -187,9 +187,9 @@ static void hive_handlemousepress(struct hive *hive, const struct vec3 *mp)
 	}
 }
 
-bool hive_haspiece(struct hive *hive, piece_t type, piece_t side)
+bool hive_haspiece(Hive *hive, hive_piece_t type, hive_piece_t side)
 {
-	piece_t *inventory = NULL;
+	hive_piece_t *inventory = NULL;
 	if (side & HIVE_WHITE)
 		inventory = hive->whiteInventory;
 	else
@@ -202,9 +202,9 @@ bool hive_haspiece(struct hive *hive, piece_t type, piece_t side)
 	return false;
 }
 
-bool hive_playmove(struct hive *hive, struct move *move)
+bool hive_playmove(Hive *hive, struct move *move)
 {
-	const struct vec3 nullVec = { -1, -1, -1 };
+	const Vec3 nullVec = { -1, -1, -1 };
 
 	hive->playMove = false;
 
@@ -235,7 +235,7 @@ makemove:
 	return true;
 }
 
-int hive_handle(struct hive *hive, int c)
+int hive_handle(Hive *hive, int c)
 {
 	MEVENT event;
 
@@ -243,7 +243,7 @@ int hive_handle(struct hive *hive, int c)
 	case KEY_MOUSE:
 		getmouse(&event);
 		if (event.bstate & BUTTON1_CLICKED || event.bstate & BUTTON1_PRESSED) {
-			struct vec3 pos;
+			Vec3 pos;
 
 			pos.x = event.x;
 			pos.y = event.y;
@@ -283,7 +283,7 @@ int hive_handle(struct hive *hive, int c)
 	return 0;
 }
 
-void hive_render(struct hive *hive)
+void hive_render(Hive *hive)
 {
 	static const char *pieceNames[] = {
 		" ",
@@ -302,19 +302,19 @@ void hive_render(struct hive *hive)
 		"\u25e4",
 		"\u25e5"
 	};
-	static const enum hive_direction toDirection[] = {
+	static const hive_direction_t toDirection[] = {
 		HIVE_NORTH_WEST,
 		HIVE_NORTH_EAST,
 		HIVE_SOUTH_EAST,
 		HIVE_SOUTH_WEST
 	};
-	static const struct vec3 cellOffsets[] = {
+	static const Vec3 cellOffsets[] = {
 		{ 0, 0, 0 },
 		{ 4, 0, 0 },
 		{ 4, 1, 0 },
 		{ 0, 1, 0 }
 	};
-	static const int pairs[3][3] = {
+	static const short pairs[3][3] = {
 		/* -1 because these values are unused */
 		{ -1, -1, -1},
 		{ HIVE_PAIR_BLACK,
@@ -324,14 +324,14 @@ void hive_render(struct hive *hive)
 			HIVE_PAIR_WHITE_BLACK,
 			HIVE_PAIR_WHITE_WHITE },
 	};
-	struct vec3 pos, world;
+	Vec3 pos, world;
 	WINDOW *const win = hive->win;
 
 	werase(win);
 	for (pos.y = 0; pos.y < HIVE_GRID_ROWS; pos.y++)
 		for (pos.x = 0; pos.x < HIVE_GRID_COLUMNS; pos.x++) {
-			piece_t piece;
-			piece_t type;
+			hive_piece_t piece;
+			hive_piece_t type;
 
 			world.x = pos.x * 4;
 			world.y = pos.y * 2 + pos.x % 2;
@@ -342,7 +342,7 @@ void hive_render(struct hive *hive)
 			if (type == HIVE_EMPTY)
 				continue;
 
-			const piece_t side = HIVE_GETSIDE(piece);
+			const hive_piece_t side = HIVE_GETSIDE(piece);
 			wattr_set(win, A_REVERSE, side == HIVE_WHITE ?
 				HIVE_PAIR_WHITE : HIVE_PAIR_BLACK, NULL);
 
@@ -352,17 +352,17 @@ void hive_render(struct hive *hive)
 				"%s", "   ");
 
 			for (int n = 0; n < 4; n++) {
-				struct vec3 neighPos;
+				Vec3 neighPos;
 
 				neighPos = vec_move(&pos, toDirection[n]);
-				const piece_t neighPiece =
+				const hive_piece_t neighPiece =
 					hive_getexposedpiece(hive, &neighPos);
-				const piece_t p =
+				const hive_piece_t p =
 					pairs[HIVE_GETNSIDE(piece)]
 						[HIVE_GETNSIDE(neighPiece)];
 				wattr_set(win, 0, p, NULL);
 
-				const struct vec3 off = cellOffsets[n];
+				const Vec3 off = cellOffsets[n];
 				mvwprintw(win, world.y + off.y,
 					world.x + off.x,
 					"%s", triangles[n]);

@@ -10,10 +10,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#define ARRLEN(a) (sizeof(a)/sizeof*(a))
+
 #include "hive.h"
 #include "net.h"
 #include "chat.h"
-
-#define ARRLEN(a) (sizeof(a)/sizeof*(a))
 
 #endif

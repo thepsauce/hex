@@ -21,20 +21,18 @@
 #define HIVE_GETTYPE(p) ((p) & HIVE_TYPE_MASK)
 #define HIVE_GETSIDE(p) ((p) & HIVE_SIDE_MASK)
 
-enum hive_color_pair {
-	HIVE_PAIR_BLACK = 1,
-	HIVE_PAIR_WHITE = 2,
-	HIVE_PAIR_BLACK_WHITE = 3,
-	HIVE_PAIR_WHITE_BLACK = 4,
-	HIVE_PAIR_BLACK_BLACK = 5,
-	HIVE_PAIR_WHITE_WHITE = 6,
-};
+#define HIVE_PAIR_BLACK 1
+#define HIVE_PAIR_WHITE 2
+#define HIVE_PAIR_BLACK_WHITE 3
+#define HIVE_PAIR_WHITE_BLACK 4
+#define HIVE_PAIR_BLACK_BLACK 5
+#define HIVE_PAIR_WHITE_WHITE 6
 
-struct vec3 {
+typedef struct vec3 {
 	int x, y, z;
-};
+} Vec3;
 
-enum hive_direction {
+typedef enum hive_direction {
 	HIVE_SOUTH_EAST,
 	HIVE_NORTH_EAST,
 	HIVE_NORTH,
@@ -42,9 +40,9 @@ enum hive_direction {
 	HIVE_SOUTH_WEST,
 	HIVE_SOUTH,
 	HIVE_DIRECTION_COUNT
-};
+} hive_direction_t;
 
-typedef char piece_t;
+typedef char hive_piece_t;
 
 #define HIVE_EMPTY 0x00
 #define HIVE_QUEEN 0x01
@@ -74,49 +72,50 @@ struct window {
 	struct state *state;
 };
 
-struct move {
-	struct vec3 startPos;
-	struct vec3 endPos;
-	piece_t piece;
-};
+typedef struct move {
+	Vec3 startPos;
+	Vec3 endPos;
+	hive_piece_t piece;
+} Move;
 
-struct hive {
+typedef struct hive {
 	WINDOW *win;
-	struct vec3 winPos;
-	struct vec3 winSize;
-	piece_t turn;
-	piece_t whiteInventory[HIVE_INVENTORY_SIZE];
-	piece_t blackInventory[HIVE_INVENTORY_SIZE];
-	piece_t selectedPiece;
-	struct move pendingMove;
+	Vec3 winPos;
+	Vec3 winSize;
+	hive_piece_t turn;
+	hive_piece_t whiteInventory[HIVE_INVENTORY_SIZE];
+	hive_piece_t blackInventory[HIVE_INVENTORY_SIZE];
+	hive_piece_t selectedPiece;
+	Move pendingMove;
 	int piecesPlayed;
-	struct move *validMoves;
-	piece_t grid[HIVE_GRID_COLUMNS * HIVE_GRID_ROWS];
+	Move *validMoves;
+	hive_piece_t grid[HIVE_GRID_COLUMNS * HIVE_GRID_ROWS];
 	bool playMove;
 	struct {
-		struct vec3 pos;
-		piece_t piece;
+		Vec3 pos;
+		hive_piece_t piece;
 	} stacks[HIVE_STACK_SIZE];
 	int stackSz;
-};
+} Hive;
 
-struct vec3 vec_move(const struct vec3 *vec, enum hive_direction dir);
-enum hive_direction vec_getdir(const struct vec3 *a, const struct vec3 *b);
+Vec3 vec_move(const Vec3 *vec, hive_direction_t dir);
+hive_direction_t vec_getdir(const Vec3 *a, const Vec3 *b);
 
-int hive_init(struct hive *hive);
-void hive_render(struct hive *hive);
-int hive_handle(struct hive *hive, int c);
+int hive_init(Hive *hive);
+void hive_render(Hive *hive);
+int hive_handle(Hive *hive, int c);
 
-piece_t hive_getabove(struct hive *hive, struct vec3 *pos);
-piece_t hive_getexposedpiece(struct hive *hive, struct vec3 *pos);
-bool hive_onehive(struct hive *hive, const struct vec3 *startPos);
+hive_piece_t hive_getabove(Hive *hive, Vec3 *pos);
+hive_piece_t hive_getexposedpiece(Hive *hive, Vec3 *pos);
+bool hive_onehive(Hive *hive, const Vec3 *startPos);
 
-bool hive_playmove(struct hive *hive, struct move *move);
-void hive_movesforant(struct hive *hive, const struct vec3 *startPos);
-void hive_movesforbeetle(struct hive *hive, const struct vec3 *startPos);
-void hive_movesforspider(struct hive *hive, const struct vec3 *startPos);
-void hive_movesforgrasshopper(struct hive *hive, const struct vec3 *startPos);
-void hive_movesforqueen(struct hive *hive, const struct vec3 *startPos);
-void hive_generatemoves(struct hive *hive);
-bool hive_canplace(struct hive *hive, const struct vec3 *pos, piece_t piece);
+bool hive_playmove(Hive *hive, Move *move);
+void hive_movesforant(Hive *hive, const Vec3 *startPos);
+void hive_movesforbeetle(Hive *hive, const Vec3 *startPos);
+void hive_movesforspider(Hive *hive, const Vec3 *startPos);
+void hive_movesforgrasshopper(Hive *hive, const Vec3 *startPos);
+void hive_movesforqueen(Hive *hive, const Vec3 *startPos);
+void hive_generatemoves(Hive *hive);
+
+bool hive_canplace(Hive *hive, const Vec3 *pos, hive_piece_t piece);
 

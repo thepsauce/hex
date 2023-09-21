@@ -1,6 +1,6 @@
 #include "hex.h"
 
-struct hive hive_game;
+Hive hive_game;
 
 struct chat chat_term;
 
