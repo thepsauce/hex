@@ -1,6 +1,6 @@
 #include "test.h"
 
-struct chat chat_term;
+NetChat chat;
 
 int main(void)
 {
@@ -12,28 +12,26 @@ int main(void)
 	noecho();
 	mousemask(ALL_MOUSE_EVENTS, NULL);
 	mouseinterval(0);
+	timeout(300);
 	start_color();
-	timeout(10);
 	//nodelay(stdscr, true);
-	init_pair(HIVE_PAIR_BLACK, COLOR_RED, COLOR_BLACK);
-	init_pair(HIVE_PAIR_WHITE, COLOR_BLUE, COLOR_BLACK);
-	init_pair(HIVE_PAIR_BLACK_WHITE, COLOR_RED, COLOR_BLUE);
-	init_pair(HIVE_PAIR_WHITE_BLACK, COLOR_BLUE, COLOR_RED);
-	init_pair(HIVE_PAIR_BLACK_BLACK, COLOR_RED, COLOR_RED);
-	init_pair(HIVE_PAIR_WHITE_WHITE, COLOR_BLUE, COLOR_BLUE);
+	init_pair(PAIR_NORMAL, COLOR_WHITE, COLOR_BLACK);
+	init_pair(PAIR_ERROR, COLOR_RED, COLOR_BLACK);
+	init_pair(PAIR_INFO, COLOR_MAGENTA, COLOR_BLACK);
+	init_pair(PAIR_COMMAND, COLOR_BLUE, COLOR_BLACK);
+	init_pair(PAIR_ARGUMENT, COLOR_GREEN, COLOR_BLACK);
 	refresh();
 
-	chat_init(&chat_term, 0, 0, 30, LINES);
+	net_chat_init(&chat, 0, 0, COLS, LINES, 10000);
 
-	const char *str = "hello there";
-	strcpy(chat_term.out, str);
-	chat_term.nOut = strlen(str);
-	strcpy(chat_term.in, str);
-	chat_term.nIn = strlen(str);
-	erase();
 	while(1) {
-		int c = getch();
-		chat_update(&chat_term);
+		int x, y;
+
+		net_chat_render(&chat);
+		getyx(chat.win, y, x);
+		move(y, x);
+		const int c = getch();
+		net_chat_handle(&chat, c);
 	}
 
 	return 0;

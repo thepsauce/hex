@@ -1,238 +1,449 @@
 #include "hex.h"
-#include "stb_ds.h"
 
-int hive_init(Hive *hive)
+void hive_movepoint(Point *point, int dir)
 {
-	static const hive_piece_t defaultInventory[HIVE_INVENTORY_SIZE] = {
-		HIVE_QUEEN,
-		HIVE_BEETLE,
-		HIVE_BEETLE,
-		HIVE_GRASSHOPPER,
-		HIVE_GRASSHOPPER,
-		HIVE_GRASSHOPPER,
-		HIVE_SPIDER,
-		HIVE_SPIDER,
-		HIVE_ANT,
-		HIVE_ANT,
-		HIVE_ANT,
-		HIVE_LADYBUG,
-		HIVE_MOSQUITO,
-		HIVE_PILLBUG,
-		HIVE_QUEEN,
-		HIVE_BEETLE,
-		HIVE_BEETLE,
-		HIVE_GRASSHOPPER,
-		HIVE_GRASSHOPPER,
-		HIVE_GRASSHOPPER,
-		HIVE_SPIDER,
-		HIVE_SPIDER,
-		HIVE_ANT,
-		HIVE_ANT,
-		HIVE_ANT,
-		HIVE_LADYBUG,
-		HIVE_MOSQUITO,
-		HIVE_PILLBUG
+	static const Point directions[2][6] = {
+		{
+			{  0, -1 }, /* north */
+			{  0,  1 }, /* south */
+
+			{ -1, -1 }, /* north east */
+			{  1, -1 }, /* north west */
+
+			{ -1,  0 }, /* south east */
+			{  1,  0 }, /* south west */
+		},
+		{
+			{  0, -1 }, /* north */
+			{  0,  1 }, /* south */
+
+			{ -1,  0 }, /* north east */
+			{  1,  0 }, /* north west */
+
+			{ -1,  1 }, /* south east */
+			{  1,  1 }, /* south west */
+		},
+	};
+	const Point delta = directions[point->x % 2][dir];
+	point_add(point, delta);
+}
+
+void hive_pointtoworld(Point *point, Point translation)
+{
+	point->y = point->y * 2 + point->x % 2;
+	point->x *= 4;
+	point_add(point, translation);
+}
+
+void hive_pointtogrid(Point *point, Point translation)
+{
+	point_subtract(point, translation);
+	point->x /= 4;
+	point->y = (point->y - point->x % 2) / 2;
+}
+
+void hive_move_list_push(HiveMoveList *list, const HiveMove *move)
+{
+	HiveMove *newMoves;
+
+	newMoves = realloc(list->moves, sizeof(*list->moves) *
+			(list->count + 1));
+	if (newMoves == NULL)
+		return;
+	list->moves = newMoves;
+	list->moves[list->count++] = *move;
+}
+
+bool hive_move_list_contains(HiveMoveList *list, Point from, Point to)
+{
+	for (size_t i = 0; i < list->count; i++) {
+		const HiveMove m = list->moves[i];
+		if (from.x == m.from.x && from.y == m.from.y &&
+				to.x == m.to.x && to.y == m.to.y)
+			return true;
+	}
+	return false;
+}
+
+void hive_move_list_clear(HiveMoveList *list)
+{
+	list->count = 0;
+}
+
+int hive_init(Hive *hive, int x, int y, int w, int h)
+{
+	static const HivePiece defaultBlackPieces[] = {
+		{ .side = HIVE_BLACK, .type = HIVE_ANT, .position = { 8, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_ANT, .position = { 9, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_ANT, .position = { 10, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_BEETLE, .position = { 1, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_BEETLE, .position = { 2, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_GRASSHOPPER, .position = { 3, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_GRASSHOPPER, .position = { 4, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_GRASSHOPPER, .position = { 5, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_QUEEN, .position = { 0, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_SPIDER, .position = { 6, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_SPIDER, .position = { 7, 0 } },
 	};
 
+	static const HivePiece defaultWhitePieces[] = {
+		{ .side = HIVE_WHITE, .type = HIVE_ANT, .position = { 8, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_ANT, .position = { 9, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_ANT, .position = { 10, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_BEETLE, .position = { 1, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_BEETLE, .position = { 2, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_GRASSHOPPER, .position = { 3, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_GRASSHOPPER, .position = { 4, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_GRASSHOPPER, .position = { 5, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_QUEEN, .position = { 0, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_SPIDER, .position = { 6, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_SPIDER, .position = { 7, 0 } },
+	};
 	memset(hive, 0, sizeof(*hive));
-	if ((hive->win = newpad(HIVE_GRID_ROWS * 2, HIVE_GRID_COLUMNS * 4)) == NULL)
-		return -1;
-	hive->turn = HIVE_BLACK;
-	memcpy(&hive->blackInventory,
-		defaultInventory, sizeof(defaultInventory));
-	memcpy(&hive->whiteInventory,
-		defaultInventory, sizeof(defaultInventory));
-	hive->winPos.x = (HIVE_GRID_COLUMNS / 2) * 4 - COLS / 4 + 1;
-	hive->winPos.y = (HIVE_GRID_ROWS / 2) * 2 - LINES / 2 + 1;
-	hive->winSize.x = (COLS - 1) / 2;
-	hive->winSize.y = LINES - 1;
+	memcpy(&hive->allPieces[ARRLEN(defaultWhitePieces)],
+			defaultBlackPieces, sizeof(defaultBlackPieces));
+	memcpy(hive->allPieces,
+			defaultWhitePieces, sizeof(defaultWhitePieces));
 
+	hive_region_init(&hive->blackInventory,
+			x, y + h - h / 5, w, h / 5);
+	for (int i = 0; i < 11; i++)
+		hive_region_addpiece(&hive->blackInventory,
+				&hive->allPieces[11 + i]);
 
-	srand(time(NULL));
+	hive_region_init(&hive->whiteInventory,
+			x, y, w, h / 5);
+	for (int i = 0; i < 11; i++)
+		hive_region_addpiece(&hive->whiteInventory,
+				&hive->allPieces[i]);
 
-	/* test setup */
-	Vec3 pos = { HIVE_GRID_COLUMNS / 2, HIVE_GRID_ROWS / 2, 0 };
-	hive_playmove(hive, &(struct move) {
-		.startPos = (Vec3) { -1, -1, -1 },
-		.endPos = pos,
-		.piece = HIVE_WHITE | HIVE_QUEEN
-	});
-	hive_render(hive);
-
+	hive_region_init(&hive->board, x, y + h / 5, w, h - 2 * (h / 5));
 	return 0;
 }
 
-int hive_getabovestack(Hive *hive, const Vec3 *pos)
+static bool hive_canplace(Hive *hive, Point pos)
 {
-	for (int i = 0; i < hive->stackSz; i++)
-		if (memcmp(&hive->stacks[i].pos, pos, sizeof *pos) == 0)
-			return i;
-	return 0;
-}
+	HivePiece *surrounding[6];
+	bool affirm;
 
-hive_piece_t hive_getabove(Hive *hive, Vec3 *pos)
-{
-	for (int i = 0; i < hive->stackSz; i++)
-		if (memcmp(&hive->stacks[i].pos, pos, sizeof *pos) == 0)
-			return hive->stacks[i].piece;
-	return 0;
-}
-
-hive_piece_t hive_getexposedpiece(Hive *hive, Vec3 *pos)
-{
-	hive_piece_t piece;
-	
-	piece = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
-	while (piece & HIVE_ABOVE) {
-		piece = hive_getabove(hive, pos);
-		pos->z++;
-	}
-	return piece;
-}
-
-void hive_stack(Hive *hive, const Vec3 *pos, hive_piece_t piece)
-{
-	assert(hive->stackSz < HIVE_STACK_SIZE);
-	hive->stacks[hive->stackSz].pos = *pos;
-	hive->stacks[hive->stackSz].piece = piece;
-	hive->stackSz++;
-}
-
-void hive_unstack(Hive *hive, const Vec3 *pos)
-{
-	int stack;
-
-	assert(hive->stackSz > 0);
-
-	stack = hive_getabovestack(hive, pos);
-	hive->stackSz--;
-	memmove(&hive->stacks[stack],
-		&hive->stacks[hive->stackSz], sizeof *hive->stacks);
-}
-
-void hive_toggle(Hive *hive, const Vec3 *pos, hive_piece_t bits)
-{
-	for (int i = 0; i < hive->stackSz; i++)
-		if (memcmp(&hive->stacks[i].pos, pos, sizeof *pos) == 0) {
-			hive->stacks[i].piece ^= bits;
-			return;
-		}
-	/* else */
-	hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS] ^= bits;
-}
-
-void hive_putpiece(Hive *hive, Vec3 *pos, hive_piece_t piece)
-{
-	hive_piece_t below = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
-
-	if(below) {
-		int z = -1;
-		while (below & HIVE_ABOVE) {
-			below = hive_getabove(hive, pos);
-			z = pos->z++;
-		}
-
-		hive_toggle(hive, &(Vec3){
-			pos->x, pos->y, z
-		}, HIVE_ABOVE);
-
-		hive_stack(hive, pos, piece);
-	} else
-		hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS] = piece;
-}
-
-void hive_delpiece(Hive *hive, Vec3 *pos)
-{
-	hive_piece_t below = hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS];
-
-	if (below) {
-		int z = -1;
-		while (below & HIVE_ABOVE) {
-			below = hive_getabove(hive, pos);
-			z = pos->z++;
-		}
-
-		if (z == -1) {
-			hive->grid[pos->x + pos->y * HIVE_GRID_COLUMNS] = 0;
-			return;
-		}
-
-		hive_toggle(hive, &(Vec3){
-			pos->x, pos->y, z - 1
-		}, HIVE_ABOVE);
-
-		pos->z = z;
-
-		hive_unstack(hive, pos);
-	}
-}
-
-static void hive_handlemousepress(Hive *hive, const Vec3 *mp)
-{
-	Vec3 pos;
-
-	pos = *mp;
-	pos.x = pos.x / 4;
-	pos.y = (pos.y - (pos.x % 2)) / 2;
-	pos.z = 0;
-
-	if (hive->selectedPiece) {
-		hive->pendingMove.endPos = pos;
-		hive->pendingMove.piece = hive->selectedPiece;
-		hive->playMove = true;
-	}
-	else {
-		hive->pendingMove.startPos = pos;
-		hive->selectedPiece = hive_getexposedpiece(hive, &pos);
-	}
-}
-
-bool hive_haspiece(Hive *hive, hive_piece_t type, hive_piece_t side)
-{
-	hive_piece_t *inventory = NULL;
-	if (side & HIVE_WHITE)
-		inventory = hive->whiteInventory;
-	else
-		inventory = hive->blackInventory;
-
-	for (int i = 0; i < HIVE_INVENTORY_SIZE; i++)
-		if (inventory[i] == type)
-			return true;
-	/* else */
-	return false;
-}
-
-bool hive_playmove(Hive *hive, struct move *move)
-{
-	const Vec3 nullVec = { -1, -1, -1 };
-
-	hive->playMove = false;
-
-	if (!hive->piecesPlayed)
-		goto makemove;
-
-	for (int i = 0; i < arrlen(hive->validMoves); i++)
-		if (memcmp(&hive->validMoves[i], move, sizeof *move) == 0)
-			goto makemove;
-	/* else */
-	return false;
-
-makemove:
-	if (memcmp(&move->startPos, &nullVec, sizeof(nullVec)) == 0) {
-		/* This may not be needed.  I will probably generate all placements and
-		 * store them along with the valid moves.
-		 */
-		if (!hive_haspiece(hive, HIVE_GETTYPE(move->piece),
-				hive->turn % 2 ? HIVE_WHITE : HIVE_BLACK))
+	if (hive->board.numPieces == 0)
+		return true;
+	if (hive_region_pieceat(&hive->board, pos) != NULL)
+		return false;
+	if (hive_region_getsurrounding(&hive->board, pos, surrounding) == 1 &&
+			hive->board.numPieces == 1)
+		return true;
+	affirm = false;
+	for (size_t i = 0; i < 6; i++) {
+		HivePiece *const p = surrounding[i];
+		if (p == NULL)
+			continue;
+		if (p->side != hive->turn)
 			return false;
-
-		hive_putpiece(hive, &move->endPos, move->piece);
-		hive->piecesPlayed++;
-	} else {
-		hive_delpiece(hive, &move->startPos);
-		hive_putpiece(hive, &move->endPos, move->piece);
+		if (p->side == hive->turn)
+			affirm = true;
 	}
-	return true;
+	return affirm;
+}
+
+static void hive_moveexhaustive(Hive *hive, Point start,
+		HivePiece *piece, int fromDir,
+		bool addAll, uint32_t left)
+{
+	const Point orig = piece->position;
+	Point pos;
+	HivePiece *at;
+	HivePiece *pieces[6];
+	int r;
+
+	for (int d = 0; d < 6; d++) {
+		if (d == hive_oppositedirection(fromDir))
+			continue;
+		pos = orig;
+		hive_movepoint(&pos, d);
+		/* make sure to not pass through pieces */
+		at = hive_region_pieceat(&hive->board, pos);
+		if (at != NULL) {
+			r = 2;
+			goto reject;
+		}
+		/* check if moving there would isolate the piece */
+		if (hive_region_getsurrounding(&hive->board, pos,
+					pieces) == 1) {
+			r = 3;
+			goto reject;
+		}
+		/* check if the piece can pass through */
+		/*switch (d) {
+		case HIVE_NORTH:
+			if (pieces[HIVE_NORTH_EAST] != NULL &&
+					pieces[HIVE_NORTH_WEST] != NULL)
+				{ r = 5; goto reject; }
+			break;
+		case HIVE_SOUTH:
+			if (pieces[HIVE_SOUTH_EAST] != NULL &&
+					pieces[HIVE_SOUTH_WEST] != NULL)
+				{ r = 5; goto reject; }
+			break;
+		case HIVE_NORTH_EAST:
+			if (pieces[HIVE_NORTH] != NULL &&
+					pieces[HIVE_SOUTH_EAST] != NULL)
+				{ r = 5; goto reject; }
+			break;
+		case HIVE_NORTH_WEST:
+			if (pieces[HIVE_NORTH] != NULL &&
+					pieces[HIVE_SOUTH_WEST] != NULL)
+				{ r = 5; goto reject; }
+			break;
+		case HIVE_SOUTH_EAST:
+			if (pieces[HIVE_SOUTH] != NULL &&
+					pieces[HIVE_SOUTH_WEST] != NULL)
+				{ r = 5; goto reject; }
+			break;
+		case HIVE_SOUTH_WEST:
+			if (pieces[HIVE_SOUTH] != NULL &&
+					pieces[HIVE_SOUTH_EAST] != NULL)
+				{ r = 5; goto reject; }
+			break;
+		}*/
+		/* this is basically the ant blocker, preventing
+		 * infinite recursion
+		 */
+		/*if (hive_move_list_contains(&hive->moves, start, pos)) {
+			r = 4;
+			goto reject;
+		}*/
+		if (left == 1 || addAll)
+			hive_move_list_push(&hive->moves, &(HiveMove) {
+				false, start, pos
+			});
+		if (left > 1) {
+			piece->position = pos;
+			hive_moveexhaustive(hive, start, piece, d,
+					addAll, left - 1);
+		}
+		continue;
+	reject:
+		hive_move_list_push(&hive->moves, &(HiveMove) {
+			false, start, pos, r
+		});
+	}
+	piece->position = orig;
+}
+
+static void hive_computemovesant(Hive *hive)
+{
+	hive_moveexhaustive(hive,
+			hive->selectedPiece->position,
+			hive->selectedPiece, -1,
+			true, UINT32_MAX);
+}
+
+static void hive_computemovesbeetle(Hive *hive)
+{
+	HivePiece *piece;
+	Point pos;
+
+	piece = hive->selectedPiece;
+	for (int d = 0; d < 6; d++) {
+		pos = piece->position;
+		hive_movepoint(&pos, d);
+		if (piece->neighbors[d] == NULL &&
+				hive_region_getsurrounding(&hive->board, pos,
+					NULL) == 1)
+			continue;
+		hive_move_list_push(&hive->moves, &(HiveMove) {
+			false, piece->position, pos
+		});
+	}
+}
+
+static void hive_computemovesgrasshopper(Hive *hive)
+{
+	HivePiece *piece;
+	Point pos;
+
+	piece = hive->selectedPiece;
+	for (int d = 0; d < 6; d++) {
+		if (piece->neighbors[d] == NULL)
+			continue;
+		pos = piece->position;
+		for (HivePiece *p = piece; p != NULL; p = p->neighbors[d])
+			hive_movepoint(&pos, d);
+		hive_move_list_push(&hive->moves, &(HiveMove) {
+			false, piece->position, pos
+		});
+	}
+}
+
+static void hive_computemovesqueen(Hive *hive)
+{
+	hive_moveexhaustive(hive,
+			hive->selectedPiece->position,
+			hive->selectedPiece, -1,
+			false, 1);
+}
+
+static void hive_computemovesspider(Hive *hive)
+{
+	hive_moveexhaustive(hive,
+			hive->selectedPiece->position,
+			hive->selectedPiece, -1,
+			false, 3);
+}
+
+static bool hive_canmoveaway(Hive *hive)
+{
+	HivePiece *piece;
+	int dir;
+
+	piece = hive->selectedPiece;
+	if (piece->above != NULL)
+		/* should in theory never happen because
+		 * a piece below can't be selected
+		 */
+		return false;
+	if (piece->below != NULL)
+		/* the piece is on top and can freely move */
+		return true;
+	/* check if enclosed */
+	if (piece->north != NULL &&
+			piece->southWest != NULL &&
+			piece->southEast != NULL)
+		return false;
+	if (piece->south != NULL &&
+			piece->northWest != NULL &&
+			piece->northEast != NULL)
+		return false;
+	/* check if this would break the hive */
+	hive_region_clearflags(&hive->board, HIVE_VISITED);
+	piece->flags |= HIVE_VISITED;
+	/* pick any direction to go in */
+	dir = -1;
+	for (int d = 0; d < 6; d++)
+		if (piece->neighbors[d] != NULL) {
+			dir = d;
+			break;
+		}
+	if (dir == -1)
+		/* there are no pieces to move */
+		return false;
+	piece = piece->neighbors[dir];
+	return hive_region_count(&hive->board, piece) ==
+		hive->board.numPieces - 1;
+}
+
+static void hive_computemoves(Hive *hive)
+{
+	static const void (*computes[])(Hive *hive) = {
+		[HIVE_ANT] = hive_computemovesant,
+		[HIVE_BEETLE] = hive_computemovesbeetle,
+		[HIVE_GRASSHOPPER] = hive_computemovesgrasshopper,
+		[HIVE_QUEEN] = hive_computemovesqueen,
+		[HIVE_SPIDER] = hive_computemovesspider,
+	};
+	hive_move_list_clear(&hive->moves);
+	if (hive_canmoveaway(hive))
+		computes[hive->selectedPiece->type](hive);
+}
+
+static void hive_transferpiece(Hive *hive, HiveRegion *region, Point pos)
+{
+	HiveRegion *inventory;
+	bool fromInventory;
+	Point from;
+
+	if (hive->selectedPiece == NULL || region != &hive->board)
+		return;
+	from = hive->selectedPiece->position;
+	inventory = hive->turn == HIVE_WHITE ? &hive->whiteInventory :
+		&hive->blackInventory;
+	hive->selectedPiece->flags &= ~HIVE_SELECTED;
+	/* transfer from inventory to board */
+	if (hive->selectedRegion == inventory) {
+		if (hive_canplace(hive, pos)) {
+			fromInventory = true;
+			goto do_move;
+		}
+	/* move on the board */
+	} else if (hive->selectedRegion == &hive->board) {
+		if (hive_move_list_contains(&hive->moves, from, pos)) {
+			fromInventory = false;
+			goto do_move;
+		}
+	}
+	return;
+do_move:
+	hive_region_removepiece(hive->selectedRegion,
+			hive->selectedPiece);
+	hive->selectedPiece->position = pos;
+	hive_region_addpiece(region, hive->selectedPiece);
+	hive->selectedPiece = NULL;
+	hive->turn = hive->turn == HIVE_WHITE ? HIVE_BLACK : HIVE_WHITE;
+	hive_move_list_push(&hive->history, &(HiveMove) {
+		fromInventory, from, pos
+	});
+}
+
+static void hive_selectpiece(Hive *hive, HiveRegion *region, HivePiece *piece)
+{
+	if (hive->selectedPiece != NULL) {
+		hive->selectedPiece->flags &= ~HIVE_SELECTED;
+		if (hive->selectedPiece == piece) {
+			hive->selectedPiece = NULL;
+			return;
+		}
+	}
+	if (piece->side != hive->turn)
+		return;
+	hive->selectedRegion = region;
+	hive->selectedPiece = piece;
+	piece->flags |= HIVE_SELECTED;
+	if (region == &hive->board)
+		hive_computemoves(hive);
+}
+
+static void hive_handlemousepress(Hive *hive, Point mouse)
+{
+	HivePiece *piece;
+	int xBeg, yBeg, xMax, yMax;
+
+	for (size_t i = 0; i < ARRLEN(hive->regions); i++) {
+		Point pos;
+
+		HiveRegion *const region = &hive->regions[i];
+		pos = mouse;
+		getbegyx(region->win, yBeg, xBeg);
+		pos.x -= xBeg;
+		pos.y -= yBeg;
+		getmaxyx(region->win, yMax, xMax);
+		if (pos.x >= 0 && pos.x <= xMax &&
+				pos.y >= 0 && pos.y <= yMax) {
+			hive_pointtogrid(&pos, region->translation);
+			/* need to check for a special case where the piece
+			 * moves on top of another piece
+			 */
+			if (hive->selectedPiece != NULL &&
+					hive->selectedRegion == &hive->board &&
+					region == &hive->board &&
+					hive_move_list_contains(&hive->moves,
+						hive->selectedPiece->position,
+						pos)) {
+				hive_transferpiece(hive, region, pos);
+				break;
+			}
+
+			piece = hive_region_pieceat(region, pos);
+			if (piece != NULL) {
+				while (piece->above != NULL)
+					piece = piece->above;
+				hive_selectpiece(hive, region, piece);
+			} else {
+				hive_transferpiece(hive, region, pos);
+			}
+			break;
+		}
+	}
 }
 
 int hive_handle(Hive *hive, int c)
@@ -242,42 +453,10 @@ int hive_handle(Hive *hive, int c)
 	switch(c) {
 	case KEY_MOUSE:
 		getmouse(&event);
-		if (event.bstate & BUTTON1_CLICKED || event.bstate & BUTTON1_PRESSED) {
-			Vec3 pos;
-
-			pos.x = event.x;
-			pos.y = event.y;
-			wmouse_trafo(hive->win, &pos.y, &pos.x, FALSE);
-
-			pos.x = pos.x + hive->winPos.x;
-			pos.y = pos.y + hive->winPos.y;
-			hive_handlemousepress(hive, &pos);
-
-			if (hive->playMove)
-				if (hive_playmove(hive, &hive->pendingMove)) {
-					hive_generatemoves(hive);
-					hive_render(hive);
-					hive->selectedPiece = 0;
-				}
-		}
-		if (event.bstate & BUTTON3_CLICKED || event.bstate & BUTTON3_PRESSED)
-			hive->selectedPiece = 0;
-		break;
-	case 'a':
-		hive->winPos.x = hive->winPos.x < getmaxx(hive->win) ?
-			hive->winPos.x + 1 : hive->winPos.x;
-		break;
-	case 'd':
-		hive->winPos.x = hive->winPos.x > 0 ?
-			hive->winPos.x - 1 : hive->winPos.x;
-		break;
-	case 's':
-		hive->winPos.y = hive->winPos.y > 0 ?
-			hive->winPos.y - 1 : hive->winPos.y;
-		break;
-	case 'w':
-		hive->winPos.y = hive->winPos.y < getmaxy(hive->win) ?
-			hive->winPos.y + 1 : hive->winPos.y;
+		if ((event.bstate & BUTTON1_CLICKED) ||
+				(event.bstate & BUTTON1_PRESSED))
+			hive_handlemousepress(hive,
+					(Point) { event.x, event.y });
 		break;
 	}
 	return 0;
@@ -285,90 +464,20 @@ int hive_handle(Hive *hive, int c)
 
 void hive_render(Hive *hive)
 {
-	static const char *pieceNames[] = {
-		" ",
-		"Q",
-		"B",
-		"G",
-		"S",
-		"A",
-		"L",
-		"M",
-		"P"
-	};
-	static const char *triangles[] = {
-		"\u25e2",
-		"\u25e3",
-		"\u25e4",
-		"\u25e5"
-	};
-	static const hive_direction_t toDirection[] = {
-		HIVE_NORTH_WEST,
-		HIVE_NORTH_EAST,
-		HIVE_SOUTH_EAST,
-		HIVE_SOUTH_WEST
-	};
-	static const Vec3 cellOffsets[] = {
-		{ 0, 0, 0 },
-		{ 4, 0, 0 },
-		{ 4, 1, 0 },
-		{ 0, 1, 0 }
-	};
-	static const short pairs[3][3] = {
-		/* -1 because these values are unused */
-		{ -1, -1, -1},
-		{ HIVE_PAIR_BLACK,
-			HIVE_PAIR_BLACK_BLACK,
-			HIVE_PAIR_BLACK_WHITE },
-		{ HIVE_PAIR_WHITE,
-			HIVE_PAIR_WHITE_BLACK,
-			HIVE_PAIR_WHITE_WHITE },
-	};
-	Vec3 pos, world;
-	WINDOW *const win = hive->win;
+	for (size_t i = 0; i < ARRLEN(hive->regions); i++)
+		hive_region_render(&hive->regions[i]);
+	/* render all possible moves */
+	if (hive->selectedPiece == NULL ||
+			hive->selectedRegion != &hive->board)
+		return;
+	for (size_t i = 0; i < hive->moves.count; i++) {
+		Point p;
 
-	werase(win);
-	for (pos.y = 0; pos.y < HIVE_GRID_ROWS; pos.y++)
-		for (pos.x = 0; pos.x < HIVE_GRID_COLUMNS; pos.x++) {
-			hive_piece_t piece;
-			hive_piece_t type;
-
-			world.x = pos.x * 4;
-			world.y = pos.y * 2 + pos.x % 2;
-
-			pos.z = 0;
-			piece = hive_getexposedpiece(hive, &pos);
-			type = HIVE_GETTYPE(piece);
-			if (type == HIVE_EMPTY)
-				continue;
-
-			const hive_piece_t side = HIVE_GETSIDE(piece);
-			wattr_set(win, A_REVERSE, side == HIVE_WHITE ?
-				HIVE_PAIR_WHITE : HIVE_PAIR_BLACK, NULL);
-
-			mvwprintw(win, world.y, world.x + 1,
-				" %s ", pieceNames[(int) type]);
-			mvwprintw(win, world.y + 1, world.x + 1,
-				"%s", "   ");
-
-			for (int n = 0; n < 4; n++) {
-				Vec3 neighPos;
-
-				neighPos = vec_move(&pos, toDirection[n]);
-				const hive_piece_t neighPiece =
-					hive_getexposedpiece(hive, &neighPos);
-				const hive_piece_t p =
-					pairs[HIVE_GETNSIDE(piece)]
-						[HIVE_GETNSIDE(neighPiece)];
-				wattr_set(win, 0, p, NULL);
-
-				const Vec3 off = cellOffsets[n];
-				mvwprintw(win, world.y + off.y,
-					world.x + off.x,
-					"%s", triangles[n]);
-			}
-		}
-	prefresh(win,
-		hive->winPos.y, hive->winPos.x, 0, 0,
-		hive->winSize.y, hive->winSize.x);
+		p = hive->moves.moves[i].to;
+		hive_pointtoworld(&p, hive->board.translation);
+		wattr_set(hive->board.win, A_REVERSE, HIVE_PAIR_SELECTED + hive->moves.moves[i].r, NULL);
+		mvwaddstr(hive->board.win, p.y, p.x + 1, "   ");
+		mvwaddstr(hive->board.win, p.y + 1, p.x + 1, "   ");
+	}
+	wrefresh(hive->board.win);
 }

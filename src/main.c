@@ -2,7 +2,7 @@
 
 Hive hive_game;
 
-struct chat chat_term;
+NetChat chat_term;
 
 enum {
 	STATE_BOARD,
@@ -43,13 +43,13 @@ int main(int argc, char *argv[])
 	init_pair(HIVE_PAIR_WHITE_WHITE, COLOR_BLUE, COLOR_BLUE);
 	refresh();
 
-	if (hive_init(&hive_game) < 0) {
+	if (hive_init(&hive_game, 0, 0, 45, LINES) < 0) {
 		endwin();
 		perror("hive_init");
 		return -1;
 	}
 
-	if (chat_init(&chat_term, 0, 0, 45, LINES) < 0) {
+	if (net_chat_init(&chat_term, 0, 0, 45, LINES, 10000) < 0) {
 		endwin();
 		perror("chat_init");
 		return -1;
