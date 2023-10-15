@@ -4,17 +4,14 @@ Commands can be typed inside the chat window and always start with a `/`. Using 
 
 ## List of commands
 
-Change username:
-`/setusername [name]`
-
-Change server name:
-`/setservername [name]`
+Change name:
+`/setname [name]`
 
 Create a server:
 `/host [name]`
 
 Join a server:
-`/join [name] [key]`
+`/join [ip] [name]`
 
 Leave the server:
 `/leave`
@@ -41,8 +38,8 @@ The password is ...
 ### User
 
 ```
-/setusername steve
-/join hut <pass>
+/setname steve
+/join 127.0.0.1 hut
 Successfully joined server 'hut'!
 ```
 
