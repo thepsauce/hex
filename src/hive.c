@@ -180,7 +180,7 @@ static void hive_moveexhaustive(Hive *hive, Point start,
 		pos = piece->position;
 		hive_movepoint(&pos, d);
 		if (!hive_canmoveto(hive, pos, d))
-		       continue;	
+		       continue;
 		if (left == 1) {
 			hive_move_list_push(&hive->moves, &(HiveMove) {
 				false, start, pos
@@ -219,7 +219,7 @@ static bool hive_findmovesant(Hive *hive, struct hive_ant_keeper *ak)
 				break;
 			}
 		if (hasVisited || !hive_canmoveto(hive, pos, d))
-		       continue;
+			continue;
 
 		hive_move_list_push(&hive->moves, &(HiveMove) {
 			false, ak->start, pos
@@ -517,4 +517,5 @@ void hive_render(Hive *hive)
 		mvwaddstr(hive->board.win, p.y, p.x + 1, "   ");
 		mvwaddstr(hive->board.win, p.y + 1, p.x + 1, "   ");
 	}
+	wnoutrefresh(hive->board.win);
 }

@@ -11,7 +11,7 @@ common_flags="-g"
 # -Ibuild needs to be included so that gcc can find the .gch file
 compiler_flags="$common_flags -Wall -Wextra -Ibuild -Isrc"
 linker_flags="$common_flags"
-linker_libs="-lmagic -lcurses"
+linker_libs="-lcurses"
 
 set -o xtrace
 
