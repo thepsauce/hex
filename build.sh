@@ -1,6 +1,5 @@
 sources=$(find src -name "*.c")
 headers=$(find src -name "*.h")
-langs=$(find lang -mindepth 1 -maxdepth 1 -type d)
 objects=
 do_linking=false
 program=
@@ -11,7 +10,7 @@ common_flags="-g"
 # -Ibuild needs to be included so that gcc can find the .gch file
 compiler_flags="$common_flags -Wall -Wextra -Ibuild -Isrc"
 linker_flags="$common_flags"
-linker_libs="-lcurses"
+linker_libs="-lncursesw"
 
 set -o xtrace
 
@@ -44,20 +43,21 @@ then
 	gcc $linker_flags $objects -o build/$project_name $linker_libs || exit
 fi
 
-for l in $langs
-do
-	gcc $compiler_flags -shared -o build/$(basename $l).so -fPIC $l/*
-done
-
 while [ ! $# = 0 ]
 do
 	case $1 in
 	-t)
 		program=test
 		shift
-		[ $# = 0 ] && ( echo "-t is missing argument" && exit )
-		[ tests/$1.c -nt build/tests/$1.o ] &&
-			( gcc $compiler_flags -c tests/$1.c -o build/tests/$1.o || exit )
+		if [ $# = 0 ]
+		then
+			echo "-t is missing argument"
+			exit
+		fi
+		if [ tests/$1.c -nt build/tests/$1.o ]
+		then
+			gcc $compiler_flags -c tests/$1.c -o build/tests/$1.o || exit
+		fi
 		exc_objects="${objects/'build/main.o'/} build/tests/$1.o"
 		gcc $linker_flags $exc_objects -o build/test $linker_libs || exit
 		;;
