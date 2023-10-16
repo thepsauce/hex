@@ -40,48 +40,50 @@ int net_porthash(const char *name)
 	return port;
 }
 
-int net_request_init(NetRequest *req, net_request_type_t type, ...)
+int net_request_vinit(NetRequest *req, net_request_type_t type, va_list lorig)
 {
 	va_list l;
 	const char *name, *extra;
 
 	gettimeofday(&req->time, NULL);
 	req->type = type;
-	va_start(l, type);
+	va_copy(l, lorig);
 	switch (type) {
 	case NET_REQUEST_MSG:
 		name = va_arg(l, const char*);
 		extra = va_arg(l, const char*);
 		if (strlen(extra) >= sizeof(req->extra) ||
-				strlen(name) >= sizeof(req->name)) {
-			va_end(l);
+				strlen(name) >= sizeof(req->name))
 			return -1;
-		}
 		strcpy(req->name, name);
 		strcpy(req->extra, extra);
 		break;
 	case NET_REQUEST_SRV:
 		extra = va_arg(l, const char*);
-		if (strlen(extra) >= sizeof(req->extra)) {
-			va_end(l);
+		if (strlen(extra) >= sizeof(req->extra))
 			return -1;
-		}
 		strcpy(req->extra, extra);
 		break;
 	case NET_REQUEST_SUN:
 		name = va_arg(l, const char*);
-		if (strlen(name) >= sizeof(req->name)) {
-			va_end(l);
+		if (strlen(name) >= sizeof(req->name))
 			return -1;
-		}
 		strcpy(req->name, name);
 		break;
 	default:
-		va_end(l);
 		return -1;
 	}
-	va_end(l);
 	return 0;
+}
+
+int net_request_init(NetRequest *req, net_request_type_t type, ...)
+{
+	va_list l;
+
+	va_start(l, type);
+	const int r = net_request_vinit(req, type, l);
+	va_end(l);
+	return r;
 }
 
 const char *net_request_serialize(const NetRequest *req)

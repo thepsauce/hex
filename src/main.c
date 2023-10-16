@@ -15,23 +15,11 @@ Hive hive_game;
 
 NetChat chat_term;
 
-enum {
-	STATE_BOARD,
-};
-
-const struct {
-	int (*state)(void *param, int c);
-	void *param;
-} all_states[] = {
-	[STATE_BOARD] = {
-		(int (*)(void*, int)) hive_handle,
-		(void*) &hive_game
-	},
-};
-int cur_state;
-
 int main(int argc, char *argv[])
 {
+	bool inChat = true;
+	bool prefixed = false;
+
 	(void) argc;
 	(void) argv;
 
@@ -43,53 +31,78 @@ int main(int argc, char *argv[])
 	noecho();
 	mousemask(ALL_MOUSE_EVENTS, NULL);
 	mouseinterval(0);
-	start_color();
 	timeout(10);
-	// nodelay(stdscr, true);
+
+	start_color();
+	init_pair(PAIR_NORMAL, COLOR_WHITE, COLOR_BLACK);
+	init_pair(PAIR_ERROR, COLOR_RED, COLOR_BLACK);
+	init_pair(PAIR_INFO, COLOR_MAGENTA, COLOR_BLACK);
+	init_pair(PAIR_COMMAND, COLOR_BLUE, COLOR_BLACK);
+	init_pair(PAIR_ARGUMENT, COLOR_GREEN, COLOR_BLACK);
+
 	init_pair(HIVE_PAIR_BLACK, COLOR_RED, COLOR_BLACK);
 	init_pair(HIVE_PAIR_WHITE, COLOR_BLUE, COLOR_BLACK);
 	init_pair(HIVE_PAIR_BLACK_WHITE, COLOR_RED, COLOR_BLUE);
 	init_pair(HIVE_PAIR_WHITE_BLACK, COLOR_BLUE, COLOR_RED);
 	init_pair(HIVE_PAIR_BLACK_BLACK, COLOR_RED, COLOR_RED);
 	init_pair(HIVE_PAIR_WHITE_WHITE, COLOR_BLUE, COLOR_BLUE);
+	init_pair(HIVE_PAIR_SELECTED, COLOR_YELLOW, COLOR_BLACK);
+
 	refresh();
 
-	if (hive_init(&hive_game, 0, 0, 45, LINES) < 0) {
+	if (hive_init(&hive_game, 0, 0, COLS / 2 - 1, LINES) < 0) {
 		endwin();
 		perror("hive_init");
 		return -1;
 	}
 
-	if (net_chat_init(&chat_term, 0, 0, 45, LINES, 10000) < 0) {
+	if (net_chat_init(&chat_term, COLS / 2, 0, COLS - COLS / 2, LINES, 10000) < 0) {
 		endwin();
 		perror("chat_init");
 		return -1;
 	}
 	while (1) {
-		int c;
-		MEVENT event;
+		MEVENT ev;
 
-		c = getch();
-		if (c == 'q')
+		net_chat_render(&chat_term);
+		hive_render(&hive_game);
+		doupdate();
+		/* separator line */
+		for (int y = 0; y < LINES; y++)
+			mvaddch(y, COLS / 2 - 1, '|');
+		const int c = getch();
+		switch (c) {
+		case 'W' - 'A' + 1:
+			prefixed = true;
 			break;
-		// if (c == -1) {
-		// 	chat_update(&chat_term);
-		// 	continue;
-		// }
-		// chat_handle(&chat_term, c);
-		// continue;
-		if(all_states[cur_state].
-				state(all_states[cur_state].param, c) == 1) {
-			switch (c) {
-			case KEY_MOUSE:
-				/* need to consume this for states
-				 * that don't handle mouse events
-				 */
-				getmouse(&event);
+		case KEY_MOUSE:
+			getmouse(&ev);
+			if ((ev.bstate & BUTTON1_CLICKED) ||
+					(ev.bstate & BUTTON1_PRESSED)) {
+				inChat = net_chat_handlemousepress(&chat_term,
+						(Point) { ev.x, ev.y });
+				curs_set(inChat);
+				hive_handlemousepress(&hive_game,
+						(Point) { ev.x, ev.y });
+			}
+			break;
+		default: {
+			const bool p = prefixed;
+			prefixed = false;
+			if (p) {
+				switch (c) {
+				case 'w': case 'W':
+					inChat = !inChat;
+					break;
+				}
 				break;
 			}
+			if (inChat)
+				net_chat_handle(&chat_term, c);
+			else
+				hive_handle(&hive_game, c);
 		}
-		hive_render(&hive_game);
+		}
 	}
 
 	endwin();

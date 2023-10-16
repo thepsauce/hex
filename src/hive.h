@@ -1,13 +1,3 @@
-enum {
-	HIVE_PAIR_BLACK = 1,
-	HIVE_PAIR_BLACK_BLACK,
-	HIVE_PAIR_BLACK_WHITE,
-	HIVE_PAIR_WHITE,
-	HIVE_PAIR_WHITE_BLACK,
-	HIVE_PAIR_WHITE_WHITE,
-	HIVE_PAIR_SELECTED,
-};
-
 enum hive_side {
 	HIVE_BLACK,
 	HIVE_WHITE,
@@ -23,30 +13,6 @@ enum hive_type {
 
 #define HIVE_VISITED (1 << 0)
 #define HIVE_SELECTED (1 << 1)
-
-typedef struct point {
-	int x, y;
-} Point;
-
-#define point_add(p, a) ({ \
-	Point *const _p = (p); \
-	const Point _a = (a); \
-	_p->x += _a.x; \
-	_p->y += _a.y; \
-})
-
-#define point_subtract(p, a) ({ \
-	Point *const _p = (p); \
-	const Point _a = (a); \
-	_p->x -= _a.x; \
-	_p->y -= _a.y; \
-})
-
-#define point_isequal(a, b) ({ \
-	const Point _a = (a); \
-	const Point _b = (b); \
-	_a.x == _b.x && _a.y == _b.y; \
-})
 
 void hive_movepoint(Point *point, int dir);
 void hive_pointtoworld(Point *point, Point translation);
@@ -147,5 +113,6 @@ typedef struct hive {
 int hive_init(Hive *hive, int x, int y, int w, int h);
 void hive_render(Hive *hive);
 void hive_computemoves(Hive *hive);
+bool hive_handlemousepress(Hive *hive, Point mouse);
 int hive_handle(Hive *hive, int c);
 

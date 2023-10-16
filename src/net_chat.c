@@ -19,7 +19,6 @@ int net_chat_init(NetChat *chat, int x, int y, int w, int h, int outArea)
 		chat->jobs[i].chat = chat;
 	chat->syncJob.chat = chat;
 	scrollok(chat->output.win, true);
-	net_chat_render(chat);
 	return 0;
 }
 
@@ -62,7 +61,7 @@ void net_chat_render(NetChat *chat)
 	getyx(chat->output.win, y, x);
 	chat->output.scroll = MIN(MAX(y - yMax + yBeg, 0), chat->output.scroll);
 	prefresh(chat->output.win, MAX(y - yMax + yBeg - chat->output.scroll, 0), 0,
-			yBeg, xBeg, yMax - 1, xMax);
+			yBeg, xBeg, yBeg + yMax - 1, xBeg + xMax);
 	pthread_mutex_unlock(&chat->output.lock);
 
 	wattrset(win, net_chat_iscommand(chat) ? ATTR_COMMAND : ATTR_NORMAL);
@@ -74,7 +73,7 @@ void net_chat_render(NetChat *chat)
 	waddnstr(win, chat->input.buffer + chat->input.index,
 			chat->input.length - chat->input.index);
 	wmove(win, y, x);
-	wrefresh(win);
+	wnoutrefresh(win);
 }
 
 int net_chat_setposition(NetChat *chat, int x, int y, int w, int h)
@@ -113,8 +112,14 @@ int net_chat_setposition(NetChat *chat, int x, int y, int w, int h)
 	} else if(x == xOld && y == yOld) {
 		return 1;
 	}
-	net_chat_render(chat);
 	return 0;
+}
+
+bool net_chat_handlemousepress(NetChat *chat, Point mouse)
+{
+	if (!wmouse_trafo(chat->win, &mouse.y, &mouse.x, false))
+		return false;
+	return true;
 }
 
 int net_chat_handle(NetChat *chat, int c)

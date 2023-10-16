@@ -19,6 +19,7 @@ int net_receiver_init(NetReceiver *rcv, int sock, bool isServer)
 	rcv->pollfds = fd;
 	rcv->numPollfds = 1;
 	memset(entry, 0, sizeof(*entry));
+	entry->socket = sock;
 	strcpy(entry->name, "<this>");
 	rcv->entries = entry;
 	rcv->socket = sock;
@@ -35,21 +36,60 @@ void net_receiver_uninit(NetReceiver *rcv)
 	rcv->socket = 0;
 }
 
-int net_receiver_send(NetReceiver *rcv, NetRequest *req)
+ssize_t net_receiver_send(NetReceiver *rcv, NetRequest *req)
 {
 	const char *const msg = net_request_serialize(req);
 	const size_t lenMsg = strlen(msg);
+	ssize_t total = 0;
 
-	if (rcv->isServer) {
-		for (nfds_t i = 1; i < rcv->numPollfds; i++) {
-			const int sock = rcv->pollfds[i].fd;
-			send(sock, msg, lenMsg, 0);
-		}
-	} else {
-		const int sock = rcv->pollfds[0].fd;
-		send(sock, msg, lenMsg, 0);
+	if (!rcv->isServer)
+		return send(rcv->pollfds[0].fd, msg, lenMsg, 0);
+
+	for (nfds_t i = 1; i < rcv->numPollfds; i++) {
+		const int sock = rcv->pollfds[i].fd;
+		const ssize_t n = send(sock, msg, lenMsg, 0);
+		if (n > 0)
+			total += n;
 	}
-	return 0;
+	return total;
+}
+
+ssize_t net_receiver_sendformatted(NetReceiver *rcv, int socket,
+		net_request_type_t type, const char *fmt, ...)
+{
+	NetRequest req;
+	va_list l;
+
+	gettimeofday(&req.time, NULL);
+	req.type = type;
+	va_start(l, fmt);
+	const int n = vsnprintf(req.extra, sizeof(req.extra), fmt, l);
+	va_end(l);
+	if ((size_t) n >= sizeof(req.extra))
+		return -1;
+	if (socket == 0)
+		return net_receiver_send(rcv, &req);
+	const char *const msg = net_request_serialize(&req);
+	const size_t lenMsg = strlen(msg);
+	return send(socket, msg, lenMsg, 0);
+}
+
+ssize_t net_receiver_sendany(NetReceiver *rcv, int socket,
+		net_request_type_t type, ...)
+{
+	va_list l;
+	NetRequest req;
+
+	va_start(l, type);
+	const int r = net_request_vinit(&req, type, l);
+	va_end(l);
+	if (r < 0)
+		return -1;
+	if (socket == 0)
+		return net_receiver_send(rcv, &req);
+	const char *const msg = net_request_serialize(&req);
+	const size_t lenMsg = strlen(msg);
+	return send(socket, msg, lenMsg, 0);
 }
 
 bool net_receiver_nextrequest(NetReceiver *rcv, struct net_entry **pEntry, NetRequest *req)
@@ -125,7 +165,7 @@ disconnect:
 	return false;
 }
 
-static nfds_t net_receiver_indexof(NetReceiver *rcv, int sock)
+nfds_t net_receiver_indexof(NetReceiver *rcv, int sock)
 {
 	for (nfds_t i = 0; i < rcv->numPollfds; i++) {
 		if (rcv->pollfds[i].fd != sock)

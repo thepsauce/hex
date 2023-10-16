@@ -449,7 +449,7 @@ static HiveRegion *hive_getregionat(Hive *hive, Point at)
 	return NULL;
 }
 
-static void hive_handlemousepress(Hive *hive, Point mouse)
+bool hive_handlemousepress(Hive *hive, Point mouse)
 {
 	HivePiece *piece;
 	HiveRegion *region;
@@ -458,7 +458,7 @@ static void hive_handlemousepress(Hive *hive, Point mouse)
 	region = hive_getregionat(hive, mouse);
 	if (region == NULL) {
 		hive->selectedPiece = NULL;
-		return;
+		return false;
 	}
 	pos = mouse;
 	wmouse_trafo(region->win, &pos.y, &pos.x, false);
@@ -483,19 +483,12 @@ static void hive_handlemousepress(Hive *hive, Point mouse)
 	} else {
 		hive_transferpiece(hive, region, pos);
 	}
+	return true;
 }
 
 int hive_handle(Hive *hive, int c)
 {
-	MEVENT ev;
-
 	switch(c) {
-	case KEY_MOUSE:
-		getmouse(&ev);
-		if ((ev.bstate & BUTTON1_CLICKED) ||
-				(ev.bstate & BUTTON1_PRESSED))
-			hive_handlemousepress(hive, (Point) { ev.x, ev.y });
-		break;
 	}
 	return 0;
 }

@@ -30,6 +30,9 @@ typedef enum net_request_type {
 	NET_REQUEST_JIN,
 	NET_REQUEST_LVE,
 	NET_REQUEST_KCK,
+
+	NET_REQUEST_HIVE_CHALLENGE,
+	NET_REQUEST_HIVE_MOVE,
 } net_request_type_t;
 
 typedef struct net_request {
@@ -39,23 +42,10 @@ typedef struct net_request {
 	char extra[NET_EXTRA_SIZE];
 } NetRequest;
 
-int net_request_init(NetRequest *req, net_request_type_t type, ...);
 const char *net_request_serialize(const NetRequest *req);
+int net_request_vinit(NetRequest *req, net_request_type_t type, va_list l);
+int net_request_init(NetRequest *req, net_request_type_t type, ...);
 int net_request_deserialize(NetRequest *req, const char *data);
-
-enum {
-	PAIR_NORMAL = 1,
-	PAIR_ERROR,
-	PAIR_INFO,
-	PAIR_COMMAND,
-	PAIR_ARGUMENT,
-};
-
-#define ATTR_NORMAL COLOR_PAIR(PAIR_NORMAL)
-#define ATTR_ERROR COLOR_PAIR(PAIR_ERROR)
-#define ATTR_INFO COLOR_PAIR(PAIR_INFO)
-#define ATTR_COMMAND COLOR_PAIR(PAIR_COMMAND)
-#define ATTR_ARGUMENT COLOR_PAIR(PAIR_ARGUMENT)
 
 struct net_chat;
 
@@ -70,6 +60,7 @@ typedef struct net_receiver {
 	struct pollfd *pollfds;
 	nfds_t numPollfds;
 	struct net_entry {
+		int socket;
 		char name[NET_MAX_NAME];
 		char data[NET_USER_DATA_SIZE];
 		size_t ptr;
@@ -80,9 +71,14 @@ typedef struct net_receiver {
 
 int net_receiver_init(NetReceiver *rec, int sock, bool isServer);
 void net_receiver_uninit(NetReceiver *rec);
-int net_receiver_send(NetReceiver *rcv, NetRequest *req);
+ssize_t net_receiver_send(NetReceiver *rcv, NetRequest *req);
+ssize_t net_receiver_sendformatted(NetReceiver *rcv, int socket,
+		net_request_type_t type, const char *fmt, ...);
+ssize_t net_receiver_sendany(NetReceiver *rcv, int socket,
+		net_request_type_t type, ...);
 bool net_receiver_nextrequest(NetReceiver *rec, struct net_entry **pEntry,
 		NetRequest *req);
+nfds_t net_receiver_indexof(NetReceiver *rcv, int sock);
 int net_receiver_put(NetReceiver *rec, int sock);
 int net_receiver_remove(NetReceiver *rec, int sock);
 
@@ -90,6 +86,16 @@ typedef struct net_chat {
 	WINDOW *win;
 	char name[NET_MAX_NAME];
 	NetReceiver net;
+	/* sockets of the two players */
+	/* there are three options:
+	 * 1. Both are zero:
+	 * 	Nobody is challenging or playing.
+	 * 2. blackPlayer is not zero:
+	 * 	One player has issued a challenge.
+	 * 3. Both are not zero:
+	 * 	Two players are playing
+	 */
+	int blackPlayer, whitePlayer;
 	/* running jobs (background commands) */
 	NetChatJob jobs[10];
 	NetChatJob syncJob;
@@ -110,6 +116,7 @@ typedef struct net_chat {
 } NetChat;
 
 int net_chat_init(NetChat *chat, int x, int y, int w, int h, int outArea);
+bool net_chat_handlemousepress(NetChat *chat, Point mouse);
 int net_chat_handle(NetChat *chat, int c);
 void net_chat_render(NetChat *chat);
 /* Executes the command that is currently in the input field */

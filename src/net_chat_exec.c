@@ -5,7 +5,6 @@ void *net_chat_setname(void *arg)
 	NetChatJob *const job = (NetChatJob*) arg;
 	NetChat *const chat = (NetChat*) job->chat;
 	char *name;
-	NetRequest req;
 
 	if (job->numArgs != 1) {
 		pthread_mutex_lock(&chat->output.lock);
@@ -29,10 +28,8 @@ void *net_chat_setname(void *arg)
 		goto end;
 	}
 
-	if (chat->net.socket > 0) {
-		net_request_init(&req, NET_REQUEST_SUN, name);
-		net_receiver_send(&chat->net, &req);
-	}
+	if (chat->net.socket > 0)
+		net_receiver_sendany(&chat->net, 0, NET_REQUEST_SUN, name);
 	strcpy(chat->name, name);
 
 end:
@@ -160,10 +157,39 @@ void *net_chat_host(void *arg)
 				break;
 			pthread_mutex_lock(&chat->output.lock);
 			wattrset(chat->output.win, ATTR_INFO);
-			wprintw(chat->output.win, "User '%s' set their name to: '%s'\n",
+			wprintw(chat->output.win,
+					"User '%s' set their name to: '%s'\n",
 					ent->name, req.name);
 			strcpy(ent->name, req.name);
 			pthread_mutex_unlock(&chat->output.lock);
+			break;
+		case NET_REQUEST_HIVE_CHALLENGE:
+			if (chat->blackPlayer == 0 ||
+					net_receiver_indexof(&chat->net,
+					chat->blackPlayer) == (nfds_t) -1) {
+				chat->blackPlayer = ent->socket;
+				net_receiver_sendformatted(&chat->net, 0,
+					NET_REQUEST_SRV,
+					"User '%s' has issued a challenge.\n"
+					"Type '/challenge' to accept!\n",
+					ent->name);
+			} else if (chat->whitePlayer == 0) {
+				chat->whitePlayer = ent->socket;
+				net_receiver_sendformatted(&chat->net, 0,
+					NET_REQUEST_SRV,
+					"User '%s' has accepted the challenge.\n",
+					ent->name);
+			} else {
+				net_receiver_sendformatted(&chat->net,
+					ent->socket, NET_REQUEST_SRV,
+					"There already is an active game.\n",
+					ent->name);
+			}
+			break;
+		case NET_REQUEST_HIVE_MOVE:
+			if (ent->socket == chat->blackPlayer ||
+					ent->socket == chat->whitePlayer)
+				hc_makemove(req.extra);
 			break;
 		default:
 			break;
@@ -248,8 +274,7 @@ void *net_chat_join(void *arg)
 	wprintw(chat->output.win, "Joined net %s!\n", name);
 	pthread_mutex_unlock(&chat->output.lock);
 
-	net_request_init(&req, NET_REQUEST_SUN, chat->name);
-	net_receiver_send(&chat->net, &req);
+	net_receiver_sendany(&chat->net, 0, NET_REQUEST_SUN, chat->name);
 	while (net_receiver_nextrequest(&chat->net, &ent, &req)) {
 		switch (req.type) {
 		case NET_REQUEST_MSG:
@@ -265,6 +290,9 @@ void *net_chat_join(void *arg)
 			wattrset(chat->output.win, ATTR_INFO);
 			wprintw(chat->output.win, "Server> %s\n", req.extra);
 			pthread_mutex_unlock(&chat->output.lock);
+			break;
+		case NET_REQUEST_HIVE_MOVE:
+			hc_makemove(req.extra);
 			break;
 		default:
 			/* just ignore the request */
@@ -298,6 +326,34 @@ end:
 	return NULL;
 }
 
+static void *net_chat_challenge(void *arg)
+{
+	NetChatJob *const job = (NetChatJob*) arg;
+	NetChat *const chat = (NetChat*) job->chat;
+
+	if (job->numArgs != 0) {
+		pthread_mutex_lock(&chat->output.lock);
+		wattrset(chat->output.win, ATTR_NORMAL);
+		waddstr(chat->output.win, "usage: ");
+		wattrset(chat->output.win, ATTR_COMMAND);
+		waddstr(chat->output.win, "/challenge\n");
+		pthread_mutex_unlock(&chat->output.lock);
+		goto end;
+	}
+	if (chat->net.socket == 0) {
+		pthread_mutex_lock(&chat->output.lock);
+		wattrset(chat->output.win, ATTR_ERROR);
+		waddstr(chat->output.win, "You are not part of a network.\n");
+		pthread_mutex_unlock(&chat->output.lock);
+		goto end;
+	}
+	net_receiver_sendany(&chat->net, 0, NET_REQUEST_HIVE_CHALLENGE);
+
+end:
+	job->threadId = 0;
+	return NULL;
+}
+
 int net_chat_exec(NetChat *chat)
 {
 	static const struct cmd {
@@ -309,6 +365,7 @@ int net_chat_exec(NetChat *chat)
 		{ "host", net_chat_host, true },
 		{ "join", net_chat_join, true },
 		{ "leave", net_chat_leave, true },
+		{ "challenge", net_chat_challenge, true },
 	};
 
 	size_t i, s, n;
