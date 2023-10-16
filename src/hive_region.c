@@ -109,7 +109,7 @@ HivePiece *hive_region_pieceat(HiveRegion *region, Point p)
 		HivePiece *piece;
 
 		piece = region->pieces[i];
-		if (piece->position.x == p.x && piece->position.y == p.y) {
+		if (point_isequal(piece->position, p)) {
 			while (piece->below != NULL)
 				piece = piece->below;
 			return piece;
@@ -219,5 +219,5 @@ void hive_region_render(HiveRegion *region)
 		if (piece->above == NULL)
 			hive_piece_render(piece, win, region->translation);
 	}
-	wrefresh(win);
+	wnoutrefresh(win);
 }

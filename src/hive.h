@@ -6,11 +6,6 @@ enum {
 	HIVE_PAIR_WHITE_BLACK,
 	HIVE_PAIR_WHITE_WHITE,
 	HIVE_PAIR_SELECTED,
-	HIVE_PAIR_SELECTED1,
-	HIVE_PAIR_SELECTED2,
-	HIVE_PAIR_SELECTED3,
-	HIVE_PAIR_SELECTED4,
-	HIVE_PAIR_SELECTED5,
 };
 
 enum hive_side {
@@ -47,6 +42,12 @@ typedef struct point {
 	_p->y -= _a.y; \
 })
 
+#define point_isequal(a, b) ({ \
+	const Point _a = (a); \
+	const Point _b = (b); \
+	_a.x == _b.x && _a.y == _b.y; \
+})
+
 void hive_movepoint(Point *point, int dir);
 void hive_pointtoworld(Point *point, Point translation);
 void hive_pointtogrid(Point *point, Point translation);
@@ -67,6 +68,7 @@ enum {
 	case HIVE_NORTH_EAST: o = HIVE_SOUTH_WEST; break; \
 	case HIVE_SOUTH_WEST: o = HIVE_NORTH_EAST; break; \
 	case HIVE_SOUTH_EAST: o = HIVE_NORTH_WEST; break; \
+	default: o = -1; \
 	} \
 	o; \
 })
@@ -114,7 +116,6 @@ typedef struct hive_move {
 	bool fromInventory;
 	Point from;
 	Point to;
-	int r;
 } HiveMove;
 
 typedef struct hive_move_list {
@@ -145,5 +146,6 @@ typedef struct hive {
 
 int hive_init(Hive *hive, int x, int y, int w, int h);
 void hive_render(Hive *hive);
+void hive_computemoves(Hive *hive);
 int hive_handle(Hive *hive, int c);
 
