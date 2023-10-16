@@ -120,84 +120,137 @@ int hive_init(Hive *hive, int x, int y, int w, int h)
 	return 0;
 }
 
-static void hive_moveexhaustive(Hive *hive, Point start,
-		HivePiece *piece, int fromDir,
-		bool addAll, uint32_t left)
+static bool hive_canmoveto(Hive *hive, Point pos, int direction)
 {
-	Point pos;
 	HivePiece *at;
 	HivePiece *pieces[6];
 
-	const Point orig = piece->position;
+	/* make sure to not pass through pieces */
+	at = hive_region_pieceat(&hive->board, pos);
+	if (at != NULL)
+		return false;
+	/* check if moving there would isolate the piece */
+	if (hive_region_getsurrounding(&hive->board, pos, pieces) == 1)
+		return false;
+	/* check if the piece can pass through */
+	switch (direction) {
+	case HIVE_NORTH:
+		if (pieces[HIVE_SOUTH_EAST] != NULL &&
+				pieces[HIVE_SOUTH_WEST] != NULL)
+			return false;
+		break;
+	case HIVE_SOUTH:
+		if (pieces[HIVE_NORTH_EAST] != NULL &&
+				pieces[HIVE_NORTH_WEST] != NULL)
+			return false;
+		break;
+	case HIVE_NORTH_EAST:
+		if (pieces[HIVE_SOUTH] != NULL &&
+				pieces[HIVE_NORTH_EAST] != NULL)
+			return false;
+		break;
+	case HIVE_NORTH_WEST:
+		if (pieces[HIVE_SOUTH] != NULL &&
+				pieces[HIVE_NORTH_EAST] != NULL)
+			return false;
+		break;
+	case HIVE_SOUTH_EAST:
+		if (pieces[HIVE_NORTH] != NULL &&
+				pieces[HIVE_SOUTH_WEST] != NULL)
+			return false;
+		break;
+	case HIVE_SOUTH_WEST:
+		if (pieces[HIVE_NORTH] != NULL &&
+				pieces[HIVE_SOUTH_EAST] != NULL)
+			return false;
+		break;
+	}
+	return true;
+}
+
+static void hive_moveexhaustive(Hive *hive, Point start,
+		HivePiece *piece, int fromDir, uint32_t left)
+{
+	Point pos;
+
 	const int od = hive_oppositedirection(fromDir);
 	for (int d = 0; d < 6; d++) {
 		if (d == od)
 			continue;
-		pos = orig;
+		pos = piece->position;
 		hive_movepoint(&pos, d);
-		/* make sure to not pass through pieces */
-		at = hive_region_pieceat(&hive->board, pos);
-		if (at != NULL)
-			continue;
-		/* check if moving there would isolate the piece */
-		if (hive_region_getsurrounding(&hive->board, pos,
-					pieces) == 1)
-			continue;
-		/* check if the piece can pass through */
-		switch (d) {
-		case HIVE_NORTH:
-			if (pieces[HIVE_SOUTH_EAST] != NULL &&
-					pieces[HIVE_SOUTH_WEST] != NULL)
-				continue;
-			break;
-		case HIVE_SOUTH:
-			if (pieces[HIVE_NORTH_EAST] != NULL &&
-					pieces[HIVE_NORTH_WEST] != NULL)
-				continue;
-			break;
-		case HIVE_NORTH_EAST:
-			if (pieces[HIVE_SOUTH] != NULL &&
-					pieces[HIVE_NORTH_EAST] != NULL)
-				continue;
-			break;
-		case HIVE_NORTH_WEST:
-			if (pieces[HIVE_SOUTH] != NULL &&
-					pieces[HIVE_NORTH_EAST] != NULL)
-				continue;
-			break;
-		case HIVE_SOUTH_EAST:
-			if (pieces[HIVE_NORTH] != NULL &&
-					pieces[HIVE_SOUTH_WEST] != NULL)
-				continue;
-			break;
-		case HIVE_SOUTH_WEST:
-			if (pieces[HIVE_NORTH] != NULL &&
-					pieces[HIVE_SOUTH_EAST] != NULL)
-				continue;
-			break;
-		}
-		/* this is basically the ant blocker, preventing
-		 * infinite recursion
-		 */
-		if (hive_move_list_contains(&hive->moves, start, pos))
-			continue;
-		if (left == 1 || addAll)
+		if (!hive_canmoveto(hive, pos, d))
+		       continue;	
+		if (left == 1) {
 			hive_move_list_push(&hive->moves, &(HiveMove) {
 				false, start, pos
 			});
-		if (left > 1) {
+		} else {
+			const Point orig = piece->position;
 			piece->position = pos;
-			hive_moveexhaustive(hive, start, piece, d,
-					addAll, left - 1);
+			hive_moveexhaustive(hive, start, piece, d, left - 1);
 			piece->position = orig;
 		}
 	}
 }
 
+struct hive_ant_keeper {
+	Point start;
+	HivePiece *piece;
+	Point *positions;
+	size_t numPositions;
+};
+
+static bool hive_findmovesant(Hive *hive, struct hive_ant_keeper *ak)
+{
+	Point *newPositions;
+	Point pos;
+
+	for (int d = 0; d < 6; d++) {
+		bool hasVisited = false;
+
+		pos = ak->piece->position;
+		hive_movepoint(&pos, d);
+		if (point_isequal(pos, ak->start))
+			continue;
+		for (size_t i = 0; i < ak->numPositions; i++)
+			if (point_isequal(ak->positions[i], pos)) {
+				hasVisited = true;
+				break;
+			}
+		if (hasVisited || !hive_canmoveto(hive, pos, d))
+		       continue;
+
+		hive_move_list_push(&hive->moves, &(HiveMove) {
+			false, ak->start, pos
+		});
+		newPositions = realloc(ak->positions, sizeof(*ak->positions) *
+				(ak->numPositions + 1));
+		if (newPositions == NULL)
+			return false;
+		ak->positions = newPositions;
+		ak->positions[ak->numPositions++] = pos;
+
+		const Point orig = ak->piece->position;
+		ak->piece->position = pos;
+		if (!hive_findmovesant(hive, ak)) {
+			ak->piece->position = orig;
+			return false;
+		}
+		ak->piece->position = orig;
+	}
+	return true;
+}
+
 static void hive_computemovesant(Hive *hive)
 {
-	hive_moveexhaustive(hive, hive->selectedPiece->position,
-			hive->selectedPiece, -1, true, UINT32_MAX);
+	struct hive_ant_keeper ak;
+
+	memset(&ak, 0, sizeof(ak));
+	ak.start = hive->selectedPiece->position;
+	ak.piece = hive->selectedPiece;
+	hive_findmovesant(hive, &ak);
+	free(ak.positions);
 }
 
 static void hive_computemovesbeetle(Hive *hive)
@@ -241,13 +294,13 @@ static void hive_computemovesgrasshopper(Hive *hive)
 static void hive_computemovesqueen(Hive *hive)
 {
 	hive_moveexhaustive(hive, hive->selectedPiece->position,
-			hive->selectedPiece, -1, false, 1);
+			hive->selectedPiece, -1, 1);
 }
 
 static void hive_computemovesspider(Hive *hive)
 {
 	hive_moveexhaustive(hive, hive->selectedPiece->position,
-			hive->selectedPiece, -1, false, 3);
+			hive->selectedPiece, -1, 3);
 }
 
 static bool hive_canmoveaway(Hive *hive)

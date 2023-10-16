@@ -165,6 +165,8 @@ void *net_chat_host(void *arg)
 			strcpy(ent->name, req.name);
 			pthread_mutex_unlock(&chat->output.lock);
 			break;
+		default:
+			break;
 		}
 	}
 
@@ -399,7 +401,16 @@ int net_chat_exec(NetChat *chat)
 	}
 
 	/* create a job (in the background if isAsync) */
-	job->args = realloc(job->args, chat->input.length);
+	char *const newArgs = realloc(job->args, chat->input.length);
+	if (newArgs == NULL) {
+		exitCode = -1;
+		pthread_mutex_lock(&chat->output.lock);
+		wattrset(chat->output.win, ATTR_ERROR);
+		waddstr(chat->output.win, "Allocation error occurred.\n");
+		pthread_mutex_unlock(&chat->output.lock);
+		goto end;
+	}
+	job->args = newArgs;
 	memcpy(job->args, chat->input.buffer, chat->input.length);
 	if (cmd->isAsync)
 		pthread_create(&job->threadId, NULL, cmd->proc, job);

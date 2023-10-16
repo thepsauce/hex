@@ -29,7 +29,7 @@
 		fprintf(stderr, "%s:%d:%s\n", __FILE__, __LINE__, (msg)); \
 		exit(-1); \
 	} \
-} while(0)
+} while (0)
 
 #include "hive.h"
 #include "net.h"
