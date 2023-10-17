@@ -9,10 +9,13 @@ enum hive_type {
 	HIVE_GRASSHOPPER,
 	HIVE_QUEEN,
 	HIVE_SPIDER,
+	HIVE_LADYBUG
 };
 
 #define HIVE_VISITED (1 << 0)
 #define HIVE_SELECTED (1 << 1)
+
+#define HIVE_PIECE_COUNT 24
 
 void hive_movepoint(Point *point, int dir);
 void hive_pointtoworld(Point *point, Point translation);
@@ -63,7 +66,7 @@ void hive_piece_render(HivePiece *piece, WINDOW *win, Point t);
 typedef struct hive_region {
 	WINDOW *win;
 	Point translation;
-	HivePiece *pieces[22];
+	HivePiece *pieces[HIVE_PIECE_COUNT];
 	size_t numPieces;
 } HiveRegion;
 
@@ -102,7 +105,7 @@ typedef struct hive {
 		};
 		HiveRegion regions[3];
 	};
-	HivePiece allPieces[22];
+	HivePiece allPieces[HIVE_PIECE_COUNT];
 	HivePiece *selectedPiece;
 	HiveRegion *selectedRegion;
 	enum hive_side turn;

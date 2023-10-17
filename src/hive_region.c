@@ -157,6 +157,7 @@ void hive_piece_render(HivePiece *piece, WINDOW *win, Point translation)
 		[HIVE_GRASSHOPPER] = "G",
 		[HIVE_QUEEN] = "Q",
 		[HIVE_SPIDER] = "S",
+		[HIVE_LADYBUG] = "L",
 	};
 	static const char *triangles[] = {
 		"\u25e2",

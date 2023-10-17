@@ -83,6 +83,7 @@ int hive_init(Hive *hive, int x, int y, int w, int h)
 		{ .side = HIVE_BLACK, .type = HIVE_QUEEN, .position = { 0, 0 } },
 		{ .side = HIVE_BLACK, .type = HIVE_SPIDER, .position = { 6, 0 } },
 		{ .side = HIVE_BLACK, .type = HIVE_SPIDER, .position = { 7, 0 } },
+		{ .side = HIVE_BLACK, .type = HIVE_LADYBUG, .position = { 0, 1 } },
 	};
 
 	static const HivePiece defaultWhitePieces[] = {
@@ -97,6 +98,7 @@ int hive_init(Hive *hive, int x, int y, int w, int h)
 		{ .side = HIVE_WHITE, .type = HIVE_QUEEN, .position = { 0, 0 } },
 		{ .side = HIVE_WHITE, .type = HIVE_SPIDER, .position = { 6, 0 } },
 		{ .side = HIVE_WHITE, .type = HIVE_SPIDER, .position = { 7, 0 } },
+		{ .side = HIVE_WHITE, .type = HIVE_LADYBUG, .position = { 0, 1 } },
 	};
 	memset(hive, 0, sizeof(*hive));
 	memcpy(&hive->allPieces[ARRLEN(defaultWhitePieces)],
@@ -106,13 +108,13 @@ int hive_init(Hive *hive, int x, int y, int w, int h)
 
 	hive_region_init(&hive->blackInventory,
 			x, y + h - h / 5, w, h / 5);
-	for (int i = 0; i < 11; i++)
+	for (int i = 0; i < ARRLEN(defaultBlackPieces); i++)
 		hive_region_addpiece(&hive->blackInventory,
-				&hive->allPieces[11 + i]);
+				&hive->allPieces[ARRLEN(defaultBlackPieces) + i]);
 
 	hive_region_init(&hive->whiteInventory,
 			x, y, w, h / 5);
-	for (int i = 0; i < 11; i++)
+	for (int i = 0; i < ARRLEN(defaultWhitePieces); i++)
 		hive_region_addpiece(&hive->whiteInventory,
 				&hive->allPieces[i]);
 
@@ -348,6 +350,69 @@ static bool hive_canmoveaway(Hive *hive)
 		hive->board.numPieces - 1;
 }
 
+struct hive_ladybug_keeper {
+	Point start;
+	HivePiece *piece;
+	size_t numRemaining;
+};
+
+static void hive_findmovesladybug(
+	Hive *hive, struct hive_ladybug_keeper *lk)
+{
+	Point pos;
+	HivePiece *pieces[6];
+	HivePiece *piece;
+
+	pos = lk->piece->position;
+	hive_region_getsurrounding(&hive->board, pos, pieces);
+
+	for (int d = 0; d < 6; d++) {
+		pos = lk->piece->position;
+		hive_movepoint(&pos, d);
+
+		if (lk->start.x == pos.x &&
+				lk->start.y == pos.y)
+			continue;
+
+		piece = pieces[d];
+
+		if (lk->numRemaining >= 2) {
+			if (piece == NULL)
+				continue;
+		}
+		if (lk->numRemaining == 1) {
+			if (piece != NULL)
+				continue;
+			hive_move_list_push(&hive->moves, &(HiveMove) {
+				false, lk->start, pos
+			});
+		}
+		const Point orig = lk->piece->position;
+		lk->piece->position = pos;
+		if (lk->numRemaining) {
+			lk->numRemaining--;
+			hive_findmovesladybug(hive, lk);
+			lk->numRemaining++;
+		}
+		lk->piece->position = orig;
+	}
+}
+
+static void hive_computemovesladybug(Hive *hive)
+{
+	HivePiece *piece;
+	HivePiece *pieces[6];
+	Point pos;
+
+	struct hive_ladybug_keeper lk;
+	memset(&lk, 0, sizeof(lk));
+	lk.start = hive->selectedPiece->position;
+	lk.piece = hive->selectedPiece;
+	lk.numRemaining = 3;
+
+	hive_findmovesladybug(hive, &lk);
+}
+
 void hive_computemoves(Hive *hive)
 {
 	static const void (*computes[])(Hive *hive) = {
@@ -356,6 +421,7 @@ void hive_computemoves(Hive *hive)
 		[HIVE_GRASSHOPPER] = hive_computemovesgrasshopper,
 		[HIVE_QUEEN] = hive_computemovesqueen,
 		[HIVE_SPIDER] = hive_computemovesspider,
+		[HIVE_LADYBUG] = hive_computemovesladybug
 	};
 	hive_move_list_clear(&hive->moves);
 	if (hive_canmoveaway(hive))
