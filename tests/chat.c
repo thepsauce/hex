@@ -29,7 +29,7 @@ int main(void)
 		int x, y;
 
 		net_chat_render(chat);
-		getyx(chat.win, y, x);
+		getyx(chat->win, y, x);
 		move(y, x);
 		const int c = getch();
 		net_chat_handle(chat, c);

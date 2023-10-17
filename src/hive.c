@@ -201,32 +201,32 @@ static bool hive_findmovesant(Hive *hive, HivePiece *piece, PointList *visited)
 	Point pos;
 
 	for (int d = 0; d < 6; d++) {
-		pos = ak->piece->position;
+		pos = piece->position;
 		hive_movepoint(&pos, d);
-		if (point_list_contains(&ak->visited, pos) ||
+		if (point_list_contains(visited, pos) ||
 				!hive_canmoveto(hive, pos, d))
 			continue;
 		point_list_push(&hive->moves, pos);
-		point_list_push(&ak->visited, pos);
+		point_list_push(visited, pos);
 
-		const Point orig = ak->piece->position;
-		ak->piece->position = pos;
-		if (!hive_findmovesant(hive, ak)) {
-			ak->piece->position = orig;
+		const Point orig = piece->position;
+		piece->position = pos;
+		if (!hive_findmovesant(hive, piece, visited)) {
+			piece->position = orig;
 			return false;
 		}
-		ak->piece->position = orig;
+		piece->position = orig;
 	}
 	return true;
 }
 
 static void hive_computemovesant(Hive *hive)
 {
-	PointList visitid;
+	PointList visited;
 
 	memset(&visited, 0, sizeof(visited));
 	point_list_push(&visited, hive->selectedPiece->position);
-	hive_findmovesant(hive, piece, &visited);
+	hive_findmovesant(hive, hive->selectedPiece, &visited);
 	free(visited.points);
 }
 
@@ -401,7 +401,7 @@ static bool hive_canmoveaway(Hive *hive)
 		hive->board.numPieces - 1;
 }
 
-static void hive_computemoves(Hive *hive, enum hive_type type)
+void hive_computemoves(Hive *hive, enum hive_type type)
 {
 	static void (*const computes[])(Hive *hive) = {
 		[HIVE_ANT] = hive_computemovesant,

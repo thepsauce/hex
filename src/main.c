@@ -51,17 +51,7 @@ int main(int argc, char *argv[])
 
 	refresh();
 
-	if (hive_init(hive, 0, 0, COLS / 2 - 1, LINES) < 0) {
-		endwin();
-		perror("hive_init");
-		return -1;
-	}
-
-	if (net_chat_init(chat, COLS / 2, 0, COLS - COLS / 2, LINES, 10000) < 0) {
-		endwin();
-		perror("chat_init");
-		return -1;
-	}
+	hc_init(&hive_chat);
 	while (1) {
 		MEVENT ev;
 
