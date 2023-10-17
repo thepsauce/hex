@@ -138,7 +138,7 @@ uint32_t hive_region_count(HiveRegion *region, HivePiece *origin)
 	/* 1 for itself */
 	uint32_t cnt = 1;
 
-	for (HivePiece *p = origin; (p = origin->above) != NULL; )
+	for (HivePiece *p = origin; (p = p->above) != NULL; )
 		cnt++;
 	origin->flags |= HIVE_VISITED;
 	for (int d = 0; d < 6; d++) {
@@ -198,10 +198,15 @@ void hive_piece_render(HivePiece *piece, WINDOW *win, Point translation)
 
 	for (bottom = piece; bottom->below != NULL; bottom = bottom->below);
 	for (int n = 0; n < 4; n++) {
-		HivePiece *const neighbor = n == 0 ?
+		HivePiece *neighbor = n == 0 ?
 			bottom->northWest : n == 1 ?
 			bottom->northEast : n == 2 ?
 			bottom->southEast : bottom->southWest;
+
+		/* (Vaxeral) Get the exposed, neighboring piece. */
+		if (neighbor != NULL)
+			while (neighbor->above != NULL)
+				neighbor = neighbor->above;
 		const int side = neighbor == NULL ? 0 :
 			neighbor->side + 1;
 		const short pair = pairs[(int) piece->side + 1][side];
