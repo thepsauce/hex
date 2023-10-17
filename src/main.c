@@ -11,12 +11,12 @@
  * \___/   \___/
  */
 
-Hive hive_game;
-
-NetChat chat_term;
+HiveChat hive_chat;
 
 int main(int argc, char *argv[])
 {
+	Hive *const hive = &hive_chat.hive;
+	NetChat *const chat = &hive_chat.chat;
 	bool inChat = true;
 	bool prefixed = false;
 
@@ -47,16 +47,17 @@ int main(int argc, char *argv[])
 	init_pair(HIVE_PAIR_BLACK_BLACK, COLOR_RED, COLOR_RED);
 	init_pair(HIVE_PAIR_WHITE_WHITE, COLOR_BLUE, COLOR_BLUE);
 	init_pair(HIVE_PAIR_SELECTED, COLOR_YELLOW, COLOR_BLACK);
+	init_pair(HIVE_PAIR_CHOICE, COLOR_GREEN, COLOR_BLACK);
 
 	refresh();
 
-	if (hive_init(&hive_game, 0, 0, COLS / 2 - 1, LINES) < 0) {
+	if (hive_init(hive, 0, 0, COLS / 2 - 1, LINES) < 0) {
 		endwin();
 		perror("hive_init");
 		return -1;
 	}
 
-	if (net_chat_init(&chat_term, COLS / 2, 0, COLS - COLS / 2, LINES, 10000) < 0) {
+	if (net_chat_init(chat, COLS / 2, 0, COLS - COLS / 2, LINES, 10000) < 0) {
 		endwin();
 		perror("chat_init");
 		return -1;
@@ -64,8 +65,8 @@ int main(int argc, char *argv[])
 	while (1) {
 		MEVENT ev;
 
-		net_chat_render(&chat_term);
-		hive_render(&hive_game);
+		net_chat_render(chat);
+		hive_render(hive);
 		doupdate();
 		/* separator line */
 		for (int y = 0; y < LINES; y++)
@@ -79,10 +80,10 @@ int main(int argc, char *argv[])
 			getmouse(&ev);
 			if ((ev.bstate & BUTTON1_CLICKED) ||
 					(ev.bstate & BUTTON1_PRESSED)) {
-				inChat = net_chat_handlemousepress(&chat_term,
+				inChat = net_chat_handlemousepress(chat,
 						(Point) { ev.x, ev.y });
 				curs_set(inChat);
-				hive_handlemousepress(&hive_game,
+				hive_handlemousepress(hive,
 						(Point) { ev.x, ev.y });
 			}
 			break;
@@ -98,9 +99,9 @@ int main(int argc, char *argv[])
 				break;
 			}
 			if (inChat)
-				net_chat_handle(&chat_term, c);
+				net_chat_handle(chat, c);
 			else
-				hive_handle(&hive_game, c);
+				hive_handle(hive, c);
 		}
 		}
 	}

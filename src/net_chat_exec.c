@@ -103,6 +103,7 @@ void *net_chat_host(void *arg)
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
+
 	if (listen(sock, SOMAXCONN) < 0) {
 		net_receiver_uninit(&chat->net);
 		pthread_mutex_lock(&chat->output.lock);
@@ -113,6 +114,7 @@ void *net_chat_host(void *arg)
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
+
 	pthread_mutex_lock(&chat->output.lock);
 	wattrset(chat->output.win, ATTR_INFO);
 	wprintw(chat->output.win, "Now hosting net '%s' at %d!\n",
@@ -164,17 +166,19 @@ void *net_chat_host(void *arg)
 			pthread_mutex_unlock(&chat->output.lock);
 			break;
 		case NET_REQUEST_HIVE_CHALLENGE:
-			if (chat->blackPlayer == 0 ||
+			if (chat->players[0].socket == 0 ||
 					net_receiver_indexof(&chat->net,
-					chat->blackPlayer) == (nfds_t) -1) {
-				chat->blackPlayer = ent->socket;
+					chat->players[0].socket) == (nfds_t) -1) {
+				chat->players[0].socket = ent->socket;
+				strcpy(chat->players[0].name, ent->name);
 				net_receiver_sendformatted(&chat->net, 0,
 					NET_REQUEST_SRV,
 					"User '%s' has issued a challenge.\n"
 					"Type '/challenge' to accept!\n",
 					ent->name);
-			} else if (chat->whitePlayer == 0) {
-				chat->whitePlayer = ent->socket;
+			} else if (chat->players[1].socket == 0) {
+				chat->players[1].socket = ent->socket;
+				strcpy(chat->players[1].name, ent->name);
 				net_receiver_sendformatted(&chat->net, 0,
 					NET_REQUEST_SRV,
 					"User '%s' has accepted the challenge.\n",
@@ -187,9 +191,9 @@ void *net_chat_host(void *arg)
 			}
 			break;
 		case NET_REQUEST_HIVE_MOVE:
-			if (ent->socket == chat->blackPlayer ||
-					ent->socket == chat->whitePlayer)
-				hc_makemove(req.extra);
+			if (ent->socket == chat->players[0].socket ||
+					ent->socket == chat->players[1].socket)
+				hc_domove(chat, req.extra);
 			break;
 		default:
 			break;
@@ -292,7 +296,7 @@ void *net_chat_join(void *arg)
 			pthread_mutex_unlock(&chat->output.lock);
 			break;
 		case NET_REQUEST_HIVE_MOVE:
-			hc_makemove(req.extra);
+			hc_domove(chat, req.extra);
 			break;
 		default:
 			/* just ignore the request */

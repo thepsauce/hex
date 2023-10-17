@@ -8,6 +8,9 @@ enum hive_type {
 	HIVE_BEETLE,
 	HIVE_GRASSHOPPER,
 	HIVE_LADYBUG,
+	HIVE_MOSQUITO,
+	HIVE_PILLBUG,
+	HIVE_PILLBUG_CARRYING,
 	HIVE_QUEEN,
 	HIVE_SPIDER,
 };
@@ -15,7 +18,7 @@ enum hive_type {
 #define HIVE_VISITED (1 << 0)
 #define HIVE_SELECTED (1 << 1)
 
-#define HIVE_PIECE_COUNT 24
+#define HIVE_PIECE_COUNT 28
 
 void hive_movepoint(Point *point, int dir);
 void hive_pointtoworld(Point *point, Point translation);
@@ -93,7 +96,7 @@ typedef struct hive_move_list {
 } HiveMoveList;
 
 void hive_move_list_push(HiveMoveList *list, const HiveMove *move);
-bool hive_move_list_contains(HiveMoveList *list, Point from, Point to);
+bool hive_move_list_contains(const HiveMoveList *list, Point from, Point to);
 void hive_move_list_clear(HiveMoveList *list);
 
 typedef struct hive {
@@ -109,13 +112,13 @@ typedef struct hive {
 	HivePiece *selectedPiece;
 	HiveRegion *selectedRegion;
 	enum hive_side turn;
-	HiveMoveList moves;
+	PointList moves;
+	PointList choices;
 	HiveMoveList history;
 } Hive;
 
 int hive_init(Hive *hive, int x, int y, int w, int h);
 void hive_render(Hive *hive);
-void hive_computemoves(Hive *hive);
 bool hive_handlemousepress(Hive *hive, Point mouse);
 int hive_handle(Hive *hive, int c);
 

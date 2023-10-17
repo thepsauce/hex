@@ -55,6 +55,15 @@ typedef struct point {
 	_a.x == _b.x && _a.y == _b.y; \
 })
 
+typedef struct point_list {
+	Point *points;
+	size_t count;
+} PointList;
+
+bool point_list_push(PointList *list, Point p);
+bool point_list_contains(const PointList *list, Point p);
+void point_list_clear(PointList *list);
+
 enum {
 	PAIR_NORMAL = 1,
 	PAIR_ERROR,
@@ -69,6 +78,7 @@ enum {
 	HIVE_PAIR_WHITE_BLACK,
 	HIVE_PAIR_WHITE_WHITE,
 	HIVE_PAIR_SELECTED,
+	HIVE_PAIR_CHOICE,
 };
 
 #define ATTR_NORMAL COLOR_PAIR(PAIR_NORMAL)
@@ -79,5 +89,6 @@ enum {
 
 #include "hive.h"
 #include "net.h"
+#include "hc.h"
 
 #endif

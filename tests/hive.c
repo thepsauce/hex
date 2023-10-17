@@ -1,8 +1,10 @@
 #include "test.h"
 
+HiveChat hive_chat;
+
 int main(void)
 {
-	Hive hive;
+	Hive *const hive = &hive_chat.hive;
 
 	setlocale(LC_ALL, "");
 
@@ -25,16 +27,12 @@ int main(void)
 	init_pair(HIVE_PAIR_WHITE_WHITE, COLOR_BLUE, COLOR_BLUE);
 	refresh();
 
-	if (hive_init(&hive, 0, 0, COLS, LINES) < 0) {
-		endwin();
-		return -1;
-	}
-
+	hc_init(&hive_chat);
 	while (1) {
-		hive_render(&hive);
+		hive_render(hive);
 		doupdate();
 		const int c = getch();
-		hive_handle(&hive, c);
+		hive_handle(hive, c);
 	}
 
 	endwin();

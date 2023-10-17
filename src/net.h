@@ -86,19 +86,23 @@ typedef struct net_chat {
 	WINDOW *win;
 	char name[NET_MAX_NAME];
 	NetReceiver net;
-	/* sockets of the two players */
+	/* the playing players */
 	/* there are three options:
 	 * 1. Both are zero:
 	 * 	Nobody is challenging or playing.
-	 * 2. blackPlayer is not zero:
+	 * 2. players[0].socket is not zero:
 	 * 	One player has issued a challenge.
 	 * 3. Both are not zero:
 	 * 	Two players are playing
 	 */
-	int blackPlayer, whitePlayer;
+	struct {
+		char name[NET_MAX_NAME];
+		int socket;
+	} players[2];
 	/* running jobs (background commands) */
 	NetChatJob jobs[10];
 	NetChatJob syncJob;
+
 	struct {
 		/* area of the output pad */
 		size_t area;

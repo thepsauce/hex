@@ -1,9 +1,11 @@
 #include "test.h"
 
-NetChat chat;
+HiveChat hive_chat;
 
 int main(void)
 {
+	NetChat *const chat = &hive_chat.chat;
+
 	setlocale(LC_ALL, "");
 
 	initscr();
@@ -22,16 +24,15 @@ int main(void)
 	init_pair(PAIR_ARGUMENT, COLOR_GREEN, COLOR_BLACK);
 	refresh();
 
-	net_chat_init(&chat, 0, 0, COLS, LINES, 10000);
-
+	hc_init(&hive_chat);
 	while(1) {
 		int x, y;
 
-		net_chat_render(&chat);
+		net_chat_render(chat);
 		getyx(chat.win, y, x);
 		move(y, x);
 		const int c = getch();
-		net_chat_handle(&chat, c);
+		net_chat_handle(chat, c);
 	}
 
 	return 0;

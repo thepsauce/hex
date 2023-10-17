@@ -1,8 +1,10 @@
 #include "test.h"
 
+HiveChat hive_chat;
+
 int main(void)
 {
-	Hive hive;
+	Hive *const hive = &hive_chat.hive;
 
 	setlocale(LC_ALL, "");
 
@@ -18,11 +20,6 @@ int main(void)
 	init_pair(HIVE_PAIR_BLACK, COLOR_RED, COLOR_BLACK);
 	init_pair(HIVE_PAIR_WHITE, COLOR_BLUE, COLOR_BLACK);
 	init_pair(HIVE_PAIR_SELECTED, COLOR_YELLOW, COLOR_BLACK);
-	init_pair(HIVE_PAIR_SELECTED1, COLOR_GREEN, COLOR_BLACK);
-	init_pair(HIVE_PAIR_SELECTED2, COLOR_MAGENTA, COLOR_BLACK);
-	init_pair(HIVE_PAIR_SELECTED3, COLOR_RED, COLOR_BLACK);
-	init_pair(HIVE_PAIR_SELECTED4, COLOR_BLUE, COLOR_BLACK);
-	init_pair(HIVE_PAIR_SELECTED5, COLOR_WHITE, COLOR_BLACK);
 	init_pair(HIVE_PAIR_BLACK_WHITE, COLOR_RED, COLOR_BLUE);
 	init_pair(HIVE_PAIR_WHITE_BLACK, COLOR_BLUE, COLOR_RED);
 	init_pair(HIVE_PAIR_BLACK_BLACK, COLOR_RED, COLOR_RED);
@@ -30,10 +27,7 @@ int main(void)
 	init_pair(HIVE_PAIR_WHITE_WHITE, COLOR_BLUE, COLOR_BLUE);
 	refresh();
 
-	if (hive_init(&hive, 0, 0, COLS, LINES) < 0) {
-		endwin();
-		return -1;
-	}
+	hc_init(&hive_chat);
 
 	const struct {
 		int key;
@@ -53,7 +47,7 @@ int main(void)
 		.position = { 8, 8 },
 	};
 	while (1) {
-		hive_render(&hive);
+		hive_render(hive);
 		hive_piece_render(&mover, stdscr, (Point) { 0, 0 });
 		mvprintw(10, 10, "%d, %d", mover.position.x, mover.position.y);
 		const int c = getch();
@@ -82,7 +76,7 @@ int main(void)
 			mover.position.y++;
 			break;
 		}
-		hive_handle(&hive, c);
+		hive_handle(hive, c);
 	}
 	
 	endwin();
