@@ -196,13 +196,7 @@ static void hive_moveexhaustive(Hive *hive,
 	}
 }
 
-struct hive_ant_keeper {
-	Point start;
-	HivePiece *piece;
-	PointList visited;
-};
-
-static bool hive_findmovesant(Hive *hive, struct hive_ant_keeper *ak)
+static bool hive_findmovesant(Hive *hive, HivePiece *piece, PointList *visited)
 {
 	Point pos;
 
@@ -228,13 +222,12 @@ static bool hive_findmovesant(Hive *hive, struct hive_ant_keeper *ak)
 
 static void hive_computemovesant(Hive *hive)
 {
-	struct hive_ant_keeper ak;
+	PointList visitid;
 
-	memset(&ak, 0, sizeof(ak));
-	ak.piece = hive->selectedPiece;
-	point_list_push(&ak.visited, hive->selectedPiece->position);
-	hive_findmovesant(hive, &ak);
-	free(ak.visited.points);
+	memset(&visited, 0, sizeof(visited));
+	point_list_push(&visited, hive->selectedPiece->position);
+	hive_findmovesant(hive, piece, &visited);
+	free(visited.points);
 }
 
 static void hive_computemovesbeetle(Hive *hive)
@@ -491,8 +484,8 @@ static void hive_transferpiece(Hive *hive, HiveRegion *region, Point pos)
 			if (hive->selectedPiece->type == HIVE_MOSQUITO) {
 				hive_computemoves(hive, piece->type);
 			} else {
-				hive_computemoves(hive, HIVE_PILLBUG_CARRYING);
 				hive->selectedPiece = piece;
+				hive_computemoves(hive, HIVE_PILLBUG_CARRYING);
 			}
 		}
 	}
