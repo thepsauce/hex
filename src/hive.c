@@ -552,6 +552,8 @@ static bool hive_transferpiece(Hive *hive, HiveRegion *region, Point pos)
 					 * mosquito is trying to mimic a pillbug
 					 */
 					hive->actor == NULL) {
+				hive->actor = hive->selectedPiece;
+				hive->actor->flags |= HIVE_ISACTOR;
 				hive_computemoves(hive, piece->type);
 			} else {
 				hive->actor = hive->selectedPiece;
