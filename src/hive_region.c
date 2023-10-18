@@ -13,53 +13,10 @@ int hive_region_init(HiveRegion *region, int x, int y, int w, int h)
 
 int hive_region_addpiece(HiveRegion *region, HivePiece *piece)
 {
-	HivePiece *at;
-	HivePiece *pieces[6];
-
 	/* should in theory never happen */
 	if (region->numPieces == ARRLEN(region->pieces))
 		return -1;
-	at = hive_region_pieceat(region, piece->position);
 	region->pieces[region->numPieces++] = piece;
-	/* link the piece */
-	if (at != NULL) {
-		for (; at->above != NULL; at = at->above);
-		at->above = piece;
-		piece->below = at;
-		return 0;
-	}
-	hive_region_getsurrounding(region, piece->position, pieces);
-	for (int d = 0; d < 6; d++) {
-		HivePiece *const p = pieces[d];
-		if (p == NULL)
-			continue;
-		switch (d) {
-		case HIVE_NORTH:
-			piece->north = p;
-			p->south = piece;
-			break;
-		case HIVE_SOUTH:
-			piece->south = p;
-			p->north = piece;
-			break;
-		case HIVE_NORTH_EAST:
-			piece->northEast = p;
-			p->southWest = piece;
-			break;
-		case HIVE_NORTH_WEST:
-			piece->northWest = p;
-			p->southEast = piece;
-			break;
-		case HIVE_SOUTH_WEST:
-			piece->southWest = p;
-			p->northEast = piece;
-			break;
-		case HIVE_SOUTH_EAST:
-			piece->southEast = p;
-			p->northWest = piece;
-			break;
-		}
-	}
 	return 0;
 }
 
@@ -68,24 +25,6 @@ int hive_region_removepiece(HiveRegion *region, HivePiece *piece)
 	for (size_t i = 0; i < region->numPieces; i++) {
 		if (region->pieces[i] != piece)
 			continue;
-		/* unlink the piece */
-		if (piece->north != NULL)
-			piece->north->south = NULL;
-		if (piece->south != NULL)
-			piece->south->north = NULL;
-		if (piece->northWest != NULL)
-			piece->northWest->southEast = NULL;
-		if (piece->northEast != NULL)
-			piece->northEast->southWest = NULL;
-		if (piece->southWest != NULL)
-			piece->southWest->northEast = NULL;
-		if (piece->southEast != NULL)
-			piece->southEast->northWest = NULL;
-		if (piece->above != NULL)
-			piece->above->below = piece->below;
-		if (piece->below != NULL)
-			piece->below->above = piece->above;
-		memset(piece->neighbors, 0, sizeof(piece->neighbors));
 		region->numPieces--;
 		memmove(&region->pieces[i], &region->pieces[i + 1],
 			sizeof(*region->pieces) * (region->numPieces - i));
@@ -101,19 +40,52 @@ void hive_region_clearflags(HiveRegion *region, uint64_t flags)
 		region->pieces[i]->flags &= ~flags;
 }
 
-HivePiece *hive_region_pieceat(HiveRegion *region, Point p)
+HivePiece *hive_region_pieceatr(HiveRegion *region, HivePiece *from, Point at)
 {
+	bool doReturn;
+
+	doReturn = from == NULL;
+	for (size_t i = region->numPieces; i-- != 0; ) {
+		HivePiece *piece;
+
+		piece = region->pieces[i];
+		if (piece == from) {
+			doReturn = true;
+			continue;
+		}
+		if (doReturn && point_isequal(piece->position, at))
+			return piece;
+	}
+	return NULL;
+}
+
+HivePiece *hive_region_pieceat(HiveRegion *region, HivePiece *from, Point at)
+{
+	bool doReturn;
+
+	doReturn = from == NULL;
 	for (size_t i = 0; i < region->numPieces; i++) {
 		HivePiece *piece;
 
 		piece = region->pieces[i];
-		if (point_isequal(piece->position, p)) {
-			while (piece->below != NULL)
-				piece = piece->below;
-			return piece;
+		if (piece == from) {
+			doReturn = true;
+			continue;
 		}
+		if (doReturn && point_isequal(piece->position, at))
+			return piece;
 	}
 	return NULL;
+}
+
+size_t hive_region_countat(HiveRegion *region, Point at)
+{
+	size_t cnt = 0;
+
+	for (size_t i = 0; i < region->numPieces; i++)
+		if (point_isequal(region->pieces[i]->position, at))
+			cnt++;
+	return cnt;
 }
 
 size_t hive_region_getsurrounding(HiveRegion *region, Point at,
@@ -125,7 +97,22 @@ size_t hive_region_getsurrounding(HiveRegion *region, Point at,
 
 		p = at;
 		hive_movepoint(&p, d);
-		if ((pieces[d] = hive_region_pieceat(region, p)) != NULL)
+		if ((pieces[d] = hive_region_pieceat(region, NULL, p)) != NULL)
+			num++;
+	}
+	return num;
+}
+
+size_t hive_region_getsurroundingr(HiveRegion *region, Point at,
+		HivePiece *pieces[6])
+{
+	size_t num = 0;
+	for (int d = 0; d < 6; d++) {
+		Point p;
+
+		p = at;
+		hive_movepoint(&p, d);
+		if ((pieces[d] = hive_region_pieceatr(region, NULL, p)) != NULL)
 			num++;
 	}
 	return num;
@@ -134,20 +121,22 @@ size_t hive_region_getsurrounding(HiveRegion *region, Point at,
 uint32_t hive_region_count(HiveRegion *region, HivePiece *origin)
 {
 	/* 1 for itself */
-	uint32_t cnt = 1;
+	uint32_t cnt = 0;
+	HivePiece *pieces[6];
 
-	for (HivePiece *p = origin; (p = p->above) != NULL; )
-		cnt++;
+	cnt = hive_region_countat(region, origin->position);
 	origin->flags |= HIVE_VISITED;
+	hive_region_getsurrounding(region, origin->position, pieces);
 	for (int d = 0; d < 6; d++) {
-		HivePiece *const p = origin->neighbors[d];
-		if (p != NULL && !(p->flags & HIVE_VISITED))
-			cnt += hive_region_count(region, p);
+		HivePiece *const piece = pieces[d];
+		if (piece == NULL || (piece->flags & HIVE_VISITED))
+			continue;
+		cnt += hive_region_count(region, piece);
 	}
 	return cnt;
 }
 
-void hive_piece_render(HivePiece *piece, WINDOW *win, Point translation)
+void hive_region_renderpiece(HiveRegion *region, HivePiece *piece)
 {
 	static const char *pieceNames[] = {
 		[HIVE_ANT] = "A",
@@ -182,55 +171,47 @@ void hive_piece_render(HivePiece *piece, WINDOW *win, Point translation)
 			HIVE_PAIR_WHITE_WHITE },
 	};
 	Point world;
-	HivePiece *bottom;
-	int count;
-
-	count = 1;
-	for (bottom = piece; bottom->below != NULL; bottom = bottom->below)
-		count++;
+	HivePiece *pieces[6];
 
 	world = piece->position;
-	hive_pointtoworld(&world, translation);
+	hive_pointtoworld(&world, region->translation);
 
-	wattr_set(win, A_REVERSE, (piece->flags & HIVE_SELECTED) ?
+	wattr_set(region->win, A_REVERSE, (piece->flags & HIVE_SELECTED) ?
 		HIVE_PAIR_SELECTED : (piece->flags & HIVE_ISACTOR) ?
 		HIVE_PAIR_CHOICE : (piece->side == HIVE_WHITE ?
 			HIVE_PAIR_WHITE : HIVE_PAIR_BLACK), NULL);
-	mvwprintw(win, world.y, world.x + 1, " %s ",
+	mvwprintw(region->win, world.y, world.x + 1, " %s ",
 			pieceNames[(int) piece->type]);
+	const size_t count = hive_region_countat(region, piece->position);
 	if (count > 1)
-		mvwprintw(win, world.y + 1, world.x + 1, " %d ", count);
+		mvwprintw(region->win, world.y + 1, world.x + 1, " %zu ", count);
 	else
-		mvwaddstr(win, world.y + 1, world.x + 1, "   ");
+		mvwaddstr(region->win, world.y + 1, world.x + 1, "   ");
 
+	hive_region_getsurroundingr(region, piece->position, pieces);
 	for (int n = 0; n < 4; n++) {
 		HivePiece *neighbor;
 
-		/* (Vaxeral) Get the exposed, neighboring piece. */
-		neighbor = n == 0 ? bottom->northEast :
-			n == 1 ? bottom->northWest :
-			n == 2 ? bottom->southWest : bottom->southEast;
-		if (neighbor != NULL)
-			while (neighbor->above != NULL)
-				neighbor = neighbor->above;
-
+		neighbor = n == 0 ? pieces[HIVE_NORTH_EAST] :
+			n == 1 ? pieces[HIVE_NORTH_WEST] :
+			n == 2 ? pieces[HIVE_SOUTH_WEST] :
+			pieces[HIVE_SOUTH_EAST];
 		const int side = neighbor == NULL ? 0 : neighbor->side + 1;
 		const short pair = pairs[(int) piece->side + 1][side];
-		wattr_set(win, 0, pair, NULL);
+		wattr_set(region->win, 0, pair, NULL);
 		const Point off = cellOffsets[n];
-		mvwaddstr(win, world.y + off.y, world.x + off.x, triangles[n]);
+		mvwaddstr(region->win, world.y + off.y, world.x + off.x,
+				triangles[n]);
 	}
 }
 
 void hive_region_render(HiveRegion *region)
 {
-	WINDOW *const win = region->win;
-
-	werase(win);
+	werase(region->win);
 	for (size_t i = 0; i < region->numPieces; i++) {
 		HivePiece *const piece = region->pieces[i];
-		if (piece->above == NULL)
-			hive_piece_render(piece, win, region->translation);
+		if (hive_region_getabove(region, piece) == NULL)
+			hive_region_renderpiece(region, piece);
 	}
-	wnoutrefresh(win);
+	wnoutrefresh(region->win);
 }

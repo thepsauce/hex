@@ -51,24 +51,7 @@ typedef struct hive_piece {
 	enum hive_side side;
 	enum hive_type type;
 	Point position;
-	/* this is basically chaching for higher efficiency and gets
-	 * rid of an endless amount of hive_region_getsurrounding() calls
-	 */
-	union {
-		/* attention: make sure that the enum of directions and
-		 * these variables align
-		 */
-		struct {
-			struct hive_piece *north, *south;
-			struct hive_piece *northEast, *northWest;
-			struct hive_piece *southEast, *southWest;
-			struct hive_piece *above, *below;
-		};
-		struct hive_piece *neighbors[8];
-	};
 } HivePiece;
-
-void hive_piece_render(HivePiece *piece, WINDOW *win, Point t);
 
 typedef struct hive_region {
 	WINDOW *win;
@@ -80,12 +63,30 @@ typedef struct hive_region {
 int hive_region_init(HiveRegion *region, int x, int y, int w, int h);
 int hive_region_addpiece(HiveRegion *region, HivePiece *piece);
 int hive_region_removepiece(HiveRegion *region, HivePiece *piece);
+
+/* the little 'r' stands for "reverse" */
+HivePiece *hive_region_pieceat(HiveRegion *region, HivePiece *from, Point at);
+HivePiece *hive_region_pieceatr(HiveRegion *region, HivePiece *from, Point at);
 size_t hive_region_getsurrounding(HiveRegion *region, Point at,
 		HivePiece *pieces[6]);
-HivePiece *hive_region_pieceat(HiveRegion *region, Point p);
+size_t hive_region_getsurroundingr(HiveRegion *region, Point at,
+		HivePiece *pieces[6]);
+size_t hive_region_countat(HiveRegion *region, Point at);
+#define hive_region_getabove(region, piece) ({ \
+	HivePiece *const _piece = (piece); \
+	HivePiece *const _p = hive_region_pieceat(region, _piece, _piece->position); \
+	_p; \
+})
+#define hive_region_getbelow(region, piece) ({ \
+	HivePiece *const _piece = (piece); \
+	HivePiece *const _p = hive_region_pieceatr(region, _piece, _piece->position); \
+	_p; \
+})
+
 void hive_region_setposition(HiveRegion *region, int x, int y, int w, int h);
 void hive_region_clearflags(HiveRegion *region, uint64_t flags);
 uint32_t hive_region_count(HiveRegion *region, HivePiece *origin);
+void hive_region_renderpiece(HiveRegion *region, HivePiece *piece);
 void hive_region_render(HiveRegion *region);
 
 typedef struct hive_move {

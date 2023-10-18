@@ -41,10 +41,8 @@ HiveMove moves[] = {
 				&hive->whiteInventory : &hive->blackInventory;
 		else
 			hive->selectedRegion = &hive->board;
-		hive->selectedPiece = hive_region_pieceat(hive->selectedRegion,
-				moves[i].from);
-		while (hive->selectedPiece->above != NULL)
-			hive->selectedPiece = hive->selectedPiece->above;
+		hive->selectedPiece = hive_region_pieceatr(hive->selectedRegion,
+				NULL, moves[i].from);
 		hive_domove(hive, &moves[i], false);
 	}
 }
