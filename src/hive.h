@@ -17,6 +17,7 @@ enum hive_type {
 
 #define HIVE_VISITED (1 << 0)
 #define HIVE_SELECTED (1 << 1)
+#define HIVE_ISACTOR (1 << 2)
 
 #define HIVE_PIECE_COUNT 28
 
@@ -26,8 +27,8 @@ void hive_pointtogrid(Point *point, Point translation);
 
 enum {
 	HIVE_NORTH, HIVE_SOUTH,
-	HIVE_NORTH_WEST, HIVE_NORTH_EAST,
-	HIVE_SOUTH_WEST, HIVE_SOUTH_EAST,
+	HIVE_NORTH_EAST, HIVE_NORTH_WEST,
+	HIVE_SOUTH_EAST, HIVE_SOUTH_WEST,
 	HIVE_ABOVE, HIVE_BELOW
 };
 
@@ -36,10 +37,10 @@ enum {
 	switch (d) { \
 	case HIVE_NORTH: o = HIVE_SOUTH; break; \
 	case HIVE_SOUTH: o = HIVE_NORTH; break; \
-	case HIVE_NORTH_WEST: o = HIVE_SOUTH_EAST; break; \
 	case HIVE_NORTH_EAST: o = HIVE_SOUTH_WEST; break; \
-	case HIVE_SOUTH_WEST: o = HIVE_NORTH_EAST; break; \
+	case HIVE_NORTH_WEST: o = HIVE_SOUTH_EAST; break; \
 	case HIVE_SOUTH_EAST: o = HIVE_NORTH_WEST; break; \
+	case HIVE_SOUTH_WEST: o = HIVE_NORTH_EAST; break; \
 	default: o = -1; \
 	} \
 	o; \
@@ -54,10 +55,13 @@ typedef struct hive_piece {
 	 * rid of an endless amount of hive_region_getsurrounding() calls
 	 */
 	union {
+		/* attention: make sure that the enum of directions and
+		 * these variables align
+		 */
 		struct {
 			struct hive_piece *north, *south;
-			struct hive_piece *northWest, *northEast;
-			struct hive_piece *southWest, *southEast;
+			struct hive_piece *northEast, *northWest;
+			struct hive_piece *southEast, *southWest;
 			struct hive_piece *above, *below;
 		};
 		struct hive_piece *neighbors[8];
@@ -109,6 +113,7 @@ typedef struct hive {
 		HiveRegion regions[3];
 	};
 	HivePiece allPieces[HIVE_PIECE_COUNT];
+	HivePiece *actor;
 	HivePiece *selectedPiece;
 	HiveRegion *selectedRegion;
 	enum hive_side turn;

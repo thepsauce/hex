@@ -29,11 +29,11 @@ int hive_region_addpiece(HiveRegion *region, HivePiece *piece)
 		return 0;
 	}
 	hive_region_getsurrounding(region, piece->position, pieces);
-	for (size_t i = 0; i < 6; i++) {
-		HivePiece *const p = pieces[i];
+	for (int d = 0; d < 6; d++) {
+		HivePiece *const p = pieces[d];
 		if (p == NULL)
 			continue;
-		switch (i) {
+		switch (d) {
 		case HIVE_NORTH:
 			piece->north = p;
 			p->south = piece;
@@ -42,13 +42,13 @@ int hive_region_addpiece(HiveRegion *region, HivePiece *piece)
 			piece->south = p;
 			p->north = piece;
 			break;
-		case HIVE_NORTH_WEST:
-			piece->northWest = p;
-			p->southEast = piece;
-			break;
 		case HIVE_NORTH_EAST:
 			piece->northEast = p;
 			p->southWest = piece;
+			break;
+		case HIVE_NORTH_WEST:
+			piece->northWest = p;
+			p->southEast = piece;
 			break;
 		case HIVE_SOUTH_WEST:
 			piece->southWest = p;
@@ -87,10 +87,8 @@ int hive_region_removepiece(HiveRegion *region, HivePiece *piece)
 			piece->below->above = piece->above;
 		memset(piece->neighbors, 0, sizeof(piece->neighbors));
 		region->numPieces--;
-		memmove(&region->pieces[i],
-			&region->pieces[i + 1],
-			sizeof(*region->pieces) *
-				(region->numPieces - i));
+		memmove(&region->pieces[i], &region->pieces[i + 1],
+			sizeof(*region->pieces) * (region->numPieces - i));
 		return 0;
 	}
 	/* should in theory never happen */
@@ -190,28 +188,28 @@ void hive_piece_render(HivePiece *piece, WINDOW *win, Point translation)
 	hive_pointtoworld(&world, translation);
 
 	wattr_set(win, A_REVERSE, (piece->flags & HIVE_SELECTED) ?
-			HIVE_PAIR_SELECTED : (piece->side == HIVE_WHITE ?
-		HIVE_PAIR_WHITE : HIVE_PAIR_BLACK), NULL);
+		HIVE_PAIR_SELECTED : (piece->flags & HIVE_ISACTOR) ?
+		HIVE_PAIR_CHOICE : (piece->side == HIVE_WHITE ?
+			HIVE_PAIR_WHITE : HIVE_PAIR_BLACK), NULL);
 	mvwprintw(win, world.y, world.x + 1, " %s ",
 			pieceNames[(int) piece->type]);
 	mvwaddstr(win, world.y + 1, world.x + 1, "   ");
 
 	for (bottom = piece; bottom->below != NULL; bottom = bottom->below);
 	for (int n = 0; n < 4; n++) {
-		HivePiece *neighbor = n == 0 ?
-			bottom->northWest : n == 1 ?
-			bottom->northEast : n == 2 ?
-			bottom->southEast : bottom->southWest;
+		HivePiece *neighbor;
 
 		/* (Vaxeral) Get the exposed, neighboring piece. */
+		neighbor = n == 0 ? bottom->northEast :
+			n == 1 ? bottom->northWest :
+			n == 2 ? bottom->southWest : bottom->southEast;
 		if (neighbor != NULL)
 			while (neighbor->above != NULL)
 				neighbor = neighbor->above;
-		const int side = neighbor == NULL ? 0 :
-			neighbor->side + 1;
+
+		const int side = neighbor == NULL ? 0 : neighbor->side + 1;
 		const short pair = pairs[(int) piece->side + 1][side];
 		wattr_set(win, 0, pair, NULL);
-
 		const Point off = cellOffsets[n];
 		mvwaddstr(win, world.y + off.y, world.x + off.x, triangles[n]);
 	}

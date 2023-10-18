@@ -32,14 +32,13 @@ int main(void)
 
 	const struct {
 		int key;
-		Point d1, d2;
 	} keys[] = {
-		{ 'f', {  0, -1 }, {  0, -1 } },
-		{ 's', {  0,  1 }, {  0,  1 } },
-		{ 'w', { -1, -1 }, { -1,  0 } },
-		{ 'p', {  1, -1 }, {  1,  0 } },
-		{ 'r', { -1,  0 }, { -1,  1 } },
-		{ 't', {  1,  0 }, {  1,  1 } },
+		{ 'f' },
+		{ 's' },
+		{ 'w' },
+		{ 'p' },
+		{ 'r' },
+		{ 't' },
 	};
 
 	HivePiece mover = {
@@ -54,13 +53,10 @@ int main(void)
 		const int c = getch();
 		switch (c) {
 		default:
-			for (size_t i = 0; i < ARRLEN(keys); i++) {
-				if (keys[i].key != c)
+			for (int d = 0; d < (int) ARRLEN(keys); d++) {
+				if (keys[d].key != c)
 					continue;
-				const Point d = mover.position.x % 2 == 0 ?
-					keys[i].d1 : keys[i].d2;
-				mover.position.x += d.x;
-				mover.position.y += d.y;
+				hive_movepoint(&mover.position, d);
 				break;
 			}
 			break;
