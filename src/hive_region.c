@@ -183,6 +183,11 @@ void hive_piece_render(HivePiece *piece, WINDOW *win, Point translation)
 	};
 	Point world;
 	HivePiece *bottom;
+	int count;
+
+	count = 1;
+	for (bottom = piece; bottom->below != NULL; bottom = bottom->below)
+		count++;
 
 	world = piece->position;
 	hive_pointtoworld(&world, translation);
@@ -193,9 +198,11 @@ void hive_piece_render(HivePiece *piece, WINDOW *win, Point translation)
 			HIVE_PAIR_WHITE : HIVE_PAIR_BLACK), NULL);
 	mvwprintw(win, world.y, world.x + 1, " %s ",
 			pieceNames[(int) piece->type]);
-	mvwaddstr(win, world.y + 1, world.x + 1, "   ");
+	if (count > 1)
+		mvwprintw(win, world.y + 1, world.x + 1, " %d ", count);
+	else
+		mvwaddstr(win, world.y + 1, world.x + 1, "   ");
 
-	for (bottom = piece; bottom->below != NULL; bottom = bottom->below);
 	for (int n = 0; n < 4; n++) {
 		HivePiece *neighbor;
 

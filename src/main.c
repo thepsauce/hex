@@ -13,6 +13,58 @@
 
 HiveChat hive_chat;
 
+void generate_gate_test(Hive *hive)
+{
+HiveMove moves[] = {
+	{  true, {  2,  0 }, {  3,  7 } },
+	{  true, {  3,  0 }, {  2,  7 } },
+	{  true, {  1,  0 }, {  4,  7 } },
+	{  true, {  2,  0 }, {  2,  6 } },
+	{ false, {  4,  7 }, {  3,  6 } },
+	{  true, {  4,  0 }, {  1,  7 } },
+	{ false, {  3,  6 }, {  3,  5 } },
+	{  true, {  0,  1 }, {  0,  7 } },
+	{ false, {  3,  5 }, {  2,  6 } },
+	{  true, {  1,  1 }, {  0,  8 } },
+	{ false, {  2,  6 }, {  3,  6 } },
+	{ false, {  0,  7 }, {  1,  8 } },
+	{ false, {  3,  6 }, {  3,  5 } },
+	{ false, {  1,  8 }, {  0,  7 } },
+	{ false, {  3,  5 }, {  2,  5 } },
+	{  true, {  7,  0 }, {  1,  8 } },
+	{ false, {  2,  5 }, {  2,  6 } },
+};
+	for (size_t i = 0; i < ARRLEN(moves); i++) {
+		HiveMove *const move = &moves[i];
+		if (move->fromInventory)
+			hive->selectedRegion = hive->turn == HIVE_WHITE ?
+				&hive->whiteInventory : &hive->blackInventory;
+		else
+			hive->selectedRegion = &hive->board;
+		hive->selectedPiece = hive_region_pieceat(hive->selectedRegion,
+				moves[i].from);
+		while (hive->selectedPiece->above != NULL)
+			hive->selectedPiece = hive->selectedPiece->above;
+		hive_domove(hive, &moves[i], false);
+	}
+}
+
+void dump_moves(Hive *hive)
+{
+	endwin();
+	printf("HiveMove moves[] = {\n");
+	for (size_t i = 0; i < hive->history.count; i++) {
+		const HiveMove move = hive->history.moves[i];
+		printf("\t{ %5s, { %2d, %2d }, { %2d, %2d } },\n",
+				move.fromInventory ? "true" : "false",
+				move.from.x, move.from.y,
+				move.to.x, move.to.y);
+	}
+	printf("};\n");
+	printf("Hit enter to go back.\n");
+	getchar();
+}
+
 int main(int argc, char *argv[])
 {
 	Hive *const hive = &hive_chat.hive;
@@ -52,6 +104,7 @@ int main(int argc, char *argv[])
 	refresh();
 
 	hc_init(&hive_chat);
+	generate_gate_test(hive);
 	while (1) {
 		MEVENT ev;
 
@@ -65,6 +118,9 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'W' - 'A' + 1:
 			prefixed = true;
+			break;
+		case 'd':
+			dump_moves(hive);
 			break;
 		case KEY_MOUSE:
 			getmouse(&ev);

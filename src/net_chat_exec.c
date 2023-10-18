@@ -352,6 +352,10 @@ static void *net_chat_challenge(void *arg)
 		goto end;
 	}
 	net_receiver_sendany(&chat->net, 0, NET_REQUEST_HIVE_CHALLENGE);
+	pthread_mutex_lock(&chat->output.lock);
+	wattrset(chat->output.win, ATTR_INFO);
+	waddstr(chat->output.win, "Sent a challenge to the server!\n");
+	pthread_mutex_unlock(&chat->output.lock);
 
 end:
 	job->threadId = 0;

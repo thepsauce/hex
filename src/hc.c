@@ -55,19 +55,25 @@ static int hc_deserializemove(const char *data, HiveMove *move)
 
 int hc_notifymove(void *ptr, const HiveMove *move)
 {
-	HiveChat *const hc = &hive_chat;
 	char *data;
+
+	HiveChat *const hc = &hive_chat;
 
 	(void) ptr;
 
 	data = hc_serializemove(move);
-
+	net_receiver_sendany(&hc->chat.net, -1, NET_REQUEST_HIVE_MOVE, data);
 	return 0;
 }
 
-int hc_domove(void *ptr, const char *move)
+int hc_domove(void *ptr, const char *data)
 {
+	HiveMove move;
+
 	HiveChat *const hc = &hive_chat;
 	(void) ptr;
+	if (hc_deserializemove(data, &move) < 0)
+		return -1;
+	hive_domove(&hc->hive, &move, false);
 	return 0;
 }

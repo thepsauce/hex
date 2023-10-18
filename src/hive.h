@@ -123,6 +123,7 @@ typedef struct hive {
 } Hive;
 
 int hive_init(Hive *hive, int x, int y, int w, int h);
+void hive_domove(Hive *hive, const HiveMove *move, bool doNotify);
 void hive_render(Hive *hive);
 void hive_computemoves(Hive *hive, enum hive_type type);
 bool hive_handlemousepress(Hive *hive, Point mouse);
