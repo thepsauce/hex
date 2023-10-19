@@ -19,6 +19,22 @@ int net_chat_init(NetChat *chat, int x, int y, int w, int h, int outArea)
 		chat->jobs[i].chat = chat;
 	chat->syncJob.chat = chat;
 	scrollok(chat->output.win, true);
+	/* print initial text */
+	WINDOW *const win = chat->output.win;
+	wattr_set(win, 0, PAIR_INFO, NULL);
+	waddstr(win, "Welcome to hex, a chatting network that can also be used to play the board game Hive!\n\n");
+	waddstr(win,
+		"  ___     ___  \n"
+		" /   \\   /   \\ \n"
+		" \\___/   \\___/ \n"
+		" /   \\___/   \\ \n"
+		" \\___/   \\___/ \n"
+		" /   \\___/   \\ \n"
+		" \\___/   \\___/ \n"
+		" /   \\   /   \\ \n"
+		" \\___/   \\___/ \n");
+	waddstr(win, "You can either ignore this and play offline or host/join a server\n");
+	waddstr(win, "Type '/help' for help\nGL&HF!\n\n");
 	return 0;
 }
 

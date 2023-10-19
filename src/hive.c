@@ -404,11 +404,12 @@ static void hive_computemovespillbug(Hive *hive)
 			pieces);
 	for (int d = 0; d < 6; d++) {
 		HivePiece *const piece = pieces[d];
+		if (piece == NULL)
+			continue;
 		/* can't carry a recently moved piece */
 		if (point_isequal(last, piece->position))
 			return;
-		if (piece == NULL || hive_region_getbelow(&hive->board, piece)
-					== NULL ||
+		if (hive_region_getbelow(&hive->board, piece) == NULL ||
 				!hive_canmoveontop(hive,
 					hive->selectedPiece->position,
 					hive_oppositedirection(d)))
@@ -446,10 +447,19 @@ static void hive_computemovesspider(Hive *hive)
 
 static bool hive_canmoveaway(Hive *hive)
 {
-	HivePiece *pieces[6];
+	size_t i;
 	HivePiece *piece;
+	HivePiece *pieces[6];
 	int dir;
 
+	/* check if the queen was placed already */
+	for (i = 0; i < hive->board.numPieces; i++) {
+		piece = hive->board.pieces[i];
+		if (piece->type == HIVE_QUEEN && piece->side == hive->turn)
+			break;
+	}
+	if (i == hive->board.numPieces)
+		return false;
 	piece = hive->selectedPiece;
 	if (hive_region_getbelow(&hive->board, piece) != NULL)
 		return true;
@@ -498,6 +508,31 @@ static bool hive_canplace(Hive *hive, Point pos)
 
 	if (hive->board.numPieces == 0)
 		return true;
+	if (hive->selectedPiece->type != HIVE_QUEEN) {
+		size_t cnt;
+		bool hasQueen;
+
+		/* count the number of pieces of this side to check if the queen
+		 * needs to be placed */
+		cnt = 0;
+		hasQueen = false;
+		for (size_t i = 0; i < hive->board.numPieces; i++) {
+			HivePiece *const piece = hive->board.pieces[i];
+			if (piece->side != hive->turn)
+				continue;
+			if (piece->type == HIVE_QUEEN) {
+				hasQueen = true;
+				break;
+			}
+			cnt++;
+		}
+		/* cnt == 3 means that three turns were played already,
+		 * meaning the queen has to be placed now
+		 */
+		if (!hasQueen && cnt == 3)
+			return false;
+	}
+
 	if (hive_region_pieceat(&hive->board, NULL, pos) != NULL)
 		return false;
 	if (hive_region_getsurroundingr(&hive->board, pos, surrounding) == 1 &&
@@ -505,12 +540,12 @@ static bool hive_canplace(Hive *hive, Point pos)
 		return true;
 	affirm = false;
 	for (int i = 0; i < 6; i++) {
-		HivePiece *const p = surrounding[i];
-		if (p == NULL)
+		HivePiece *const piece = surrounding[i];
+		if (piece == NULL)
 			continue;
-		if (p->side != hive->turn)
+		if (piece->side != hive->turn)
 			return false;
-		if (p->side == hive->turn)
+		if (piece->side == hive->turn)
 			affirm = true;
 	}
 	return affirm;
@@ -686,6 +721,11 @@ int hive_handle(Hive *hive, int c)
 	case KEY_DOWN:
 		hive->board.translation.y++;
 		break;
+	case 0x7f:
+	case KEY_BACKSPACE:
+		break;
+	case ' ':
+		break;
 	}
 	return 0;
 }
@@ -693,13 +733,26 @@ int hive_handle(Hive *hive, int c)
 void hive_render(Hive *hive)
 {
 	Point p;
+	size_t cnt;
 
 	for (size_t i = 0; i < ARRLEN(hive->regions); i++)
 		hive_region_render(&hive->regions[i]);
-	/* render all possible moves */
 	if (hive->selectedPiece == NULL ||
 			hive->selectedRegion != &hive->board)
 		return;
+	/* render the piece stack */
+	getmaxyx(hive->board.win, p.y, p.x);
+	p.y = 0;
+	p.x -= 7;
+	cnt = hive_region_countat(&hive->board, hive->selectedPiece->position);
+	for (HivePiece *piece = hive->selectedPiece; piece != NULL;
+			piece = hive_region_getbelow(&hive->board, piece)) {
+		hive_region_renderpieceat(&hive->board, piece, cnt, p);
+		cnt--;
+		p.y += 3;
+	}
+
+	/* render all possible moves and choices */
 	wattr_set(hive->board.win, 0, COLOR(COLOR_BLACK, COLOR_YELLOW), NULL);
 	for (size_t i = 0; i < hive->moves.count; i++) {
 		p = hive->moves.points[i];

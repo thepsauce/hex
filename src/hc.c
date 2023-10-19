@@ -2,6 +2,7 @@
 
 void hc_init(HiveChat *hc)
 {
+	memset(hc, 0, sizeof(*hc));
 	if (hive_init(&hc->hive, 0, 0, COLS / 2 - 1, LINES - 1) < 0 ||
 			net_chat_init(&hc->chat, COLS / 2, 0,
 				COLS - COLS / 2, LINES - 1, 10000) < 0) {
@@ -59,9 +60,11 @@ int hc_notifymove(void *ptr, const HiveMove *move)
 {
 	char *data;
 
-	HiveChat *const hc = &hive_chat;
-
 	(void) ptr;
+
+	HiveChat *const hc = &hive_chat;
+	if (!hc->inSync)
+		return -1;
 
 	data = hc_serializemove(move);
 	net_receiver_sendany(&hc->chat.net, 0, NET_REQUEST_HIVE_MOVE, data);

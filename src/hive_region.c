@@ -136,30 +136,56 @@ uint32_t hive_region_count(HiveRegion *region, HivePiece *origin)
 	return cnt;
 }
 
+static const char *piece_names[] = {
+	[HIVE_ANT] = "A",
+	[HIVE_BEETLE] = "B",
+	[HIVE_GRASSHOPPER] = "G",
+	[HIVE_LADYBUG] = "L",
+	[HIVE_MOSQUITO] = "M",
+	[HIVE_PILLBUG] = "P",
+	[HIVE_QUEEN] = "Q",
+	[HIVE_SPIDER] = "S",
+};
+
+static const char *side_triangles[] = {
+	"\u25e2",
+	"\u25e3",
+	"\u25e4",
+	"\u25e5"
+};
+
+static const Point cell_offsets[] = {
+	{ 0, 0 },
+	{ 4, 0 },
+	{ 4, 1 },
+	{ 0, 1 }
+};
+
+void hive_region_renderpieceat(HiveRegion *region, HivePiece *piece,
+		size_t cnt, Point at)
+{
+	short fg;
+
+	fg = piece->side == HIVE_WHITE ?  COLOR_BLUE : COLOR_RED;
+	wattr_set(region->win, 0, COLOR(COLOR_BLACK, fg), NULL);
+	mvwprintw(region->win, at.y, at.x + 1, " %s ",
+			piece_names[(int) piece->type]);
+	mvwaddstr(region->win, at.y + 1, at.x + 1, "   ");
+	if (cnt > 1)
+		mvwprintw(region->win, at.y + 1, at.x + 1, " %zu ", cnt);
+	else
+		mvwaddstr(region->win, at.y + 1, at.x + 1, "   ");
+
+	for (int n = 0; n < 4; n++) {
+		wcolor_set(region->win, COLOR(fg, COLOR_YELLOW), NULL);
+		const Point off = cell_offsets[n];
+		mvwaddstr(region->win, at.y + off.y, at.x + off.x,
+				side_triangles[n]);
+	}
+}
+
 void hive_region_renderpiece(HiveRegion *region, HivePiece *piece)
 {
-	static const char *pieceNames[] = {
-		[HIVE_ANT] = "A",
-		[HIVE_BEETLE] = "B",
-		[HIVE_GRASSHOPPER] = "G",
-		[HIVE_LADYBUG] = "L",
-		[HIVE_MOSQUITO] = "M",
-		[HIVE_PILLBUG] = "P",
-		[HIVE_QUEEN] = "Q",
-		[HIVE_SPIDER] = "S",
-	};
-	static const char *triangles[] = {
-		"\u25e2",
-		"\u25e3",
-		"\u25e4",
-		"\u25e5"
-	};
-	static const Point cellOffsets[] = {
-		{ 0, 0 },
-		{ 4, 0 },
-		{ 4, 1 },
-		{ 0, 1 }
-	};
 	Point world;
 	HivePiece *pieces[6];
 	short fg;
@@ -167,16 +193,15 @@ void hive_region_renderpiece(HiveRegion *region, HivePiece *piece)
 	world = piece->position;
 	hive_pointtoworld(&world, region->translation);
 
-	wattr_set(region->win, 0, 0, NULL);
 	fg = (piece->flags & HIVE_SELECTED) ? COLOR_YELLOW :
 		(piece->flags & HIVE_ISACTOR) ? COLOR_GREEN :
 		piece->side == HIVE_WHITE ?  COLOR_BLUE : COLOR_RED;
-	wcolor_set(region->win, COLOR(COLOR_BLACK, fg), NULL);
+	wattr_set(region->win, 0, COLOR(COLOR_BLACK, fg), NULL);
 	mvwprintw(region->win, world.y, world.x + 1, " %s ",
-			pieceNames[(int) piece->type]);
-	const size_t count = hive_region_countat(region, piece->position);
-	if (count > 1)
-		mvwprintw(region->win, world.y + 1, world.x + 1, " %zu ", count);
+			piece_names[(int) piece->type]);
+	const size_t cnt = hive_region_countat(region, piece->position);
+	if (cnt > 1)
+		mvwprintw(region->win, world.y + 1, world.x + 1, " %zu ", cnt);
 	else
 		mvwaddstr(region->win, world.y + 1, world.x + 1, "   ");
 
@@ -194,9 +219,9 @@ void hive_region_renderpiece(HiveRegion *region, HivePiece *piece)
 			(neighbor->flags & HIVE_ISACTOR) ? COLOR_GREEN :
 			neighbor->side == HIVE_WHITE ?  COLOR_BLUE : COLOR_RED;
 		wcolor_set(region->win, COLOR(fg, bg), NULL);
-		const Point off = cellOffsets[n];
+		const Point off = cell_offsets[n];
 		mvwaddstr(region->win, world.y + off.y, world.x + off.x,
-				triangles[n]);
+				side_triangles[n]);
 	}
 }
 

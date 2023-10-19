@@ -1,6 +1,11 @@
 /* this is the interface to connect chat and hive, hc stands for hive-chat */
 
 typedef struct hc {
+	/* this is false if the board and the server
+	 * are not in sync, this is also false when
+	 * there is no server to send moves to
+	 */
+	bool inSync;
 	Hive hive;
 	NetChat chat;
 } HiveChat;

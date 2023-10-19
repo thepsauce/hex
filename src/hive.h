@@ -89,6 +89,8 @@ size_t hive_region_countat(HiveRegion *region, Point at);
 void hive_region_setposition(HiveRegion *region, int x, int y, int w, int h);
 void hive_region_clearflags(HiveRegion *region, uint64_t flags);
 uint32_t hive_region_count(HiveRegion *region, HivePiece *origin);
+void hive_region_renderpieceat(HiveRegion *region, HivePiece *piece,
+		size_t cnt, Point at);
 void hive_region_renderpiece(HiveRegion *region, HivePiece *piece);
 void hive_region_render(HiveRegion *region);
 
