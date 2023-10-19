@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <curses.h>
+#include <limits.h>
 #include <locale.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -30,6 +31,8 @@
 		exit(-1); \
 	} \
 } while (0)
+
+void curses_init(void);
 
 typedef struct point {
 	int x, y;
@@ -65,27 +68,16 @@ bool point_list_contains(const PointList *list, Point p);
 void point_list_clear(PointList *list);
 
 enum {
-	PAIR_NORMAL = 1,
+	/* 0 is the reserved default attribute */
+	/* 1 to 256 are the normal color pairs */
+	PAIR_NORMAL = 257,
 	PAIR_ERROR,
 	PAIR_INFO,
 	PAIR_COMMAND,
 	PAIR_ARGUMENT,
-
-	HIVE_PAIR_BLACK,
-	HIVE_PAIR_BLACK_BLACK,
-	HIVE_PAIR_BLACK_WHITE,
-	HIVE_PAIR_WHITE,
-	HIVE_PAIR_WHITE_BLACK,
-	HIVE_PAIR_WHITE_WHITE,
-	HIVE_PAIR_SELECTED,
-	HIVE_PAIR_CHOICE,
 };
 
-#define ATTR_NORMAL COLOR_PAIR(PAIR_NORMAL)
-#define ATTR_ERROR COLOR_PAIR(PAIR_ERROR)
-#define ATTR_INFO COLOR_PAIR(PAIR_INFO)
-#define ATTR_COMMAND COLOR_PAIR(PAIR_COMMAND)
-#define ATTR_ARGUMENT COLOR_PAIR(PAIR_ARGUMENT)
+#define COLOR(fg, bg) (1 + (fg) + (bg) * 8)
 
 #include "hive.h"
 #include "net.h"

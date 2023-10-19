@@ -13,56 +13,6 @@
 
 HiveChat hive_chat;
 
-void generate_gate_test(Hive *hive)
-{
-HiveMove moves[] = {
-	{  true, {  2,  0 }, {  3,  7 } },
-	{  true, {  3,  0 }, {  2,  7 } },
-	{  true, {  1,  0 }, {  4,  7 } },
-	{  true, {  2,  0 }, {  2,  6 } },
-	{ false, {  4,  7 }, {  3,  6 } },
-	{  true, {  4,  0 }, {  1,  7 } },
-	{ false, {  3,  6 }, {  3,  5 } },
-	{  true, {  0,  1 }, {  0,  7 } },
-	{ false, {  3,  5 }, {  2,  6 } },
-	{  true, {  1,  1 }, {  0,  8 } },
-	{ false, {  2,  6 }, {  3,  6 } },
-	{ false, {  0,  7 }, {  1,  8 } },
-	{ false, {  3,  6 }, {  3,  5 } },
-	{ false, {  1,  8 }, {  0,  7 } },
-	{ false, {  3,  5 }, {  2,  5 } },
-	{  true, {  7,  0 }, {  1,  8 } },
-	{ false, {  2,  5 }, {  2,  6 } },
-};
-	for (size_t i = 0; i < ARRLEN(moves); i++) {
-		HiveMove *const move = &moves[i];
-		if (move->fromInventory)
-			hive->selectedRegion = hive->turn == HIVE_WHITE ?
-				&hive->whiteInventory : &hive->blackInventory;
-		else
-			hive->selectedRegion = &hive->board;
-		hive->selectedPiece = hive_region_pieceatr(hive->selectedRegion,
-				NULL, moves[i].from);
-		hive_domove(hive, &moves[i], false);
-	}
-}
-
-void dump_moves(Hive *hive)
-{
-	endwin();
-	printf("HiveMove moves[] = {\n");
-	for (size_t i = 0; i < hive->history.count; i++) {
-		const HiveMove move = hive->history.moves[i];
-		printf("\t{ %5s, { %2d, %2d }, { %2d, %2d } },\n",
-				move.fromInventory ? "true" : "false",
-				move.from.x, move.from.y,
-				move.to.x, move.to.y);
-	}
-	printf("};\n");
-	printf("Hit enter to go back.\n");
-	getchar();
-}
-
 int main(int argc, char *argv[])
 {
 	Hive *const hive = &hive_chat.hive;
@@ -72,37 +22,9 @@ int main(int argc, char *argv[])
 
 	(void) argc;
 	(void) argv;
-
-	setlocale(LC_ALL, "");
-
-	initscr();
-	keypad(stdscr, true);
-	cbreak();
-	noecho();
-	mousemask(ALL_MOUSE_EVENTS, NULL);
-	mouseinterval(0);
-	timeout(10);
-
-	start_color();
-	init_pair(PAIR_NORMAL, COLOR_WHITE, COLOR_BLACK);
-	init_pair(PAIR_ERROR, COLOR_RED, COLOR_BLACK);
-	init_pair(PAIR_INFO, COLOR_MAGENTA, COLOR_BLACK);
-	init_pair(PAIR_COMMAND, COLOR_BLUE, COLOR_BLACK);
-	init_pair(PAIR_ARGUMENT, COLOR_GREEN, COLOR_BLACK);
-
-	init_pair(HIVE_PAIR_BLACK, COLOR_RED, COLOR_BLACK);
-	init_pair(HIVE_PAIR_WHITE, COLOR_BLUE, COLOR_BLACK);
-	init_pair(HIVE_PAIR_BLACK_WHITE, COLOR_RED, COLOR_BLUE);
-	init_pair(HIVE_PAIR_WHITE_BLACK, COLOR_BLUE, COLOR_RED);
-	init_pair(HIVE_PAIR_BLACK_BLACK, COLOR_RED, COLOR_RED);
-	init_pair(HIVE_PAIR_WHITE_WHITE, COLOR_BLUE, COLOR_BLUE);
-	init_pair(HIVE_PAIR_SELECTED, COLOR_YELLOW, COLOR_BLACK);
-	init_pair(HIVE_PAIR_CHOICE, COLOR_GREEN, COLOR_BLACK);
-
-	refresh();
+	curses_init();
 
 	hc_init(&hive_chat);
-	generate_gate_test(hive);
 	while (1) {
 		MEVENT ev;
 
@@ -110,24 +32,32 @@ int main(int argc, char *argv[])
 		hive_render(hive);
 		doupdate();
 		/* separator line */
-		for (int y = 0; y < LINES; y++)
+		attr_set(0, 0, NULL);
+		for (int y = 0; y < LINES - 1; y++)
 			mvaddch(y, COLS / 2 - 1, '|');
+		if (inChat) {
+			int xBeg, yBeg;
+			int x, y;
+
+			getbegyx(chat->win, yBeg, xBeg);
+			getyx(chat->win, y, x);
+			move(y + yBeg, x + xBeg);
+		}
 		const int c = getch();
 		switch (c) {
 		case 'W' - 'A' + 1:
 			prefixed = true;
 			break;
-		case 'd':
-			dump_moves(hive);
-			break;
 		case KEY_MOUSE:
 			getmouse(&ev);
-			if ((ev.bstate & BUTTON1_CLICKED) ||
-					(ev.bstate & BUTTON1_PRESSED)) {
+			if (ev.bstate & BUTTON1_PRESSED) {
 				inChat = net_chat_handlemousepress(chat,
 						(Point) { ev.x, ev.y });
 				curs_set(inChat);
-				hive_handlemousepress(hive,
+				hive_handlemousepress(hive, 0,
+						(Point) { ev.x, ev.y });
+			} else if (ev.bstate & BUTTON2_PRESSED) {
+				hive_handlemousepress(hive, 1,
 						(Point) { ev.x, ev.y });
 			}
 			break;

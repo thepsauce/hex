@@ -8,11 +8,11 @@ void *net_chat_setname(void *arg)
 
 	if (job->numArgs != 1) {
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_NORMAL);
+		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
 		waddstr(chat->output.win, "usage: ");
-		wattrset(chat->output.win, ATTR_COMMAND);
+		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
 		waddstr(chat->output.win, "/setname ");
-		wattrset(chat->output.win, ATTR_ARGUMENT);
+		wattr_set(chat->output.win, 0, PAIR_ARGUMENT, NULL);
 		waddstr(chat->output.win, "[name]\n");
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
@@ -20,7 +20,7 @@ void *net_chat_setname(void *arg)
 	name = job->args;
 	if (!net_isvalidname(name)) {
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win, "Invalid name '%s'."
 			"Only use letters and numbers and "
 			"between 3 and 31 characters\n", name);
@@ -51,11 +51,11 @@ void *net_chat_host(void *arg)
 
 	if (job->numArgs != 1) {
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_NORMAL);
+		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
 		waddstr(chat->output.win, "usage: ");
-		wattrset(chat->output.win, ATTR_COMMAND);
+		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
 		waddstr(chat->output.win, "/host ");
-		wattrset(chat->output.win, ATTR_ARGUMENT);
+		wattr_set(chat->output.win, 0, PAIR_ARGUMENT, NULL);
 		waddstr(chat->output.win, "[name]\n");
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
@@ -64,7 +64,7 @@ void *net_chat_host(void *arg)
 
 	if (chat->net.socket > 0) {
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win, "You are already part of a network.\n");
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
@@ -72,7 +72,7 @@ void *net_chat_host(void *arg)
 	name = args;
 	if (!net_isvalidname(name)) {
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win, "Invalid name '%s'."
 			"Only use letters and numbers and "
 			"between 3 and 31 characters\n", name);
@@ -84,7 +84,7 @@ void *net_chat_host(void *arg)
 			net_receiver_init(&chat->net, sock, true) < 0) {
 		close(sock);
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win, "Unable to create net: %s\n", strerror(errno));
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
@@ -96,7 +96,7 @@ void *net_chat_host(void *arg)
 	if (bind(sock, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
 		net_receiver_uninit(&chat->net);
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win,
 				"Unable to bind net %s: %s\n",
 				name, strerror(errno));
@@ -107,7 +107,7 @@ void *net_chat_host(void *arg)
 	if (listen(sock, SOMAXCONN) < 0) {
 		net_receiver_uninit(&chat->net);
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win,
 			"Unable set the socket to listen: %s\n",
 			strerror(errno));
@@ -116,7 +116,7 @@ void *net_chat_host(void *arg)
 	}
 
 	pthread_mutex_lock(&chat->output.lock);
-	wattrset(chat->output.win, ATTR_INFO);
+	wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 	wprintw(chat->output.win, "Now hosting net '%s' at %d!\n",
 		name, port);
 	pthread_mutex_unlock(&chat->output.lock);
@@ -126,20 +126,20 @@ void *net_chat_host(void *arg)
 			break;
 		case NET_REQUEST_JIN:
 			pthread_mutex_lock(&chat->output.lock);
-			wattrset(chat->output.win, ATTR_INFO);
+			wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 			wprintw(chat->output.win, "User 'Anon' has joined!\n");
 			pthread_mutex_unlock(&chat->output.lock);
 			break;
 		case NET_REQUEST_LVE:
 			pthread_mutex_lock(&chat->output.lock);
-			wattrset(chat->output.win, ATTR_INFO);
+			wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 			wprintw(chat->output.win, "User '%s' has left!\n",
 					ent->name);
 			pthread_mutex_unlock(&chat->output.lock);
 			break;
 		case NET_REQUEST_KCK:
 			pthread_mutex_lock(&chat->output.lock);
-			wattrset(chat->output.win, ATTR_INFO);
+			wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 			wprintw(chat->output.win,
 				"User '%s' was kicked!\n",
 				ent->name);
@@ -148,9 +148,9 @@ void *net_chat_host(void *arg)
 		case NET_REQUEST_MSG:
 			net_receiver_send(&chat->net, &req);
 			pthread_mutex_lock(&chat->output.lock);
-			wattrset(chat->output.win, ATTR_COMMAND);
+			wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
 			wprintw(chat->output.win, "%s> ", ent->name);
-			wattrset(chat->output.win, ATTR_NORMAL);
+			wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
 			wprintw(chat->output.win, "%s\n", req.extra);
 			pthread_mutex_unlock(&chat->output.lock);
 			break;
@@ -158,7 +158,7 @@ void *net_chat_host(void *arg)
 			if (!strcmp(ent->name, req.name))
 				break;
 			pthread_mutex_lock(&chat->output.lock);
-			wattrset(chat->output.win, ATTR_INFO);
+			wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 			wprintw(chat->output.win,
 					"User '%s' set their name to: '%s'\n",
 					ent->name, req.name);
@@ -218,18 +218,18 @@ void *net_chat_join(void *arg)
 
 	if (job->numArgs != 2) {
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_NORMAL);
+		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
 		waddstr(chat->output.win, "usage: ");
-		wattrset(chat->output.win, ATTR_COMMAND);
+		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
 		waddstr(chat->output.win, "/join ");
-		wattrset(chat->output.win, ATTR_ARGUMENT);
+		wattr_set(chat->output.win, 0, PAIR_ARGUMENT, NULL);
 		waddstr(chat->output.win, "[ip] [name]\n");
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
 	if (chat->net.socket > 0) {
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		waddstr(chat->output.win, "You are already part of a network.\n");
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
@@ -242,14 +242,14 @@ void *net_chat_join(void *arg)
 			net_receiver_init(&chat->net, sock, false) < 0) {
 		close(sock);
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		/* TODO: maybe change error message */
 		wprintw(chat->output.win, "Unable to create socket: %s\n", strerror(errno));
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
 	pthread_mutex_lock(&chat->output.lock);
-	wattrset(chat->output.win, ATTR_INFO);
+	wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 	wprintw(chat->output.win, "Trying to connect to %s:%d (%s)...\n", ip, port, name);
 	pthread_mutex_unlock(&chat->output.lock);
 	addr.sin_family = AF_INET;
@@ -257,7 +257,7 @@ void *net_chat_join(void *arg)
 	if (inet_pton(AF_INET, ip, &addr.sin_addr) <= 0) {
 		net_receiver_uninit(&chat->net);
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win, "Unable to read ip address %s: %s\n",
 				ip, strerror(errno));
 		pthread_mutex_unlock(&chat->output.lock);
@@ -266,7 +266,7 @@ void *net_chat_join(void *arg)
 	if (connect(sock, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
 		net_receiver_uninit(&chat->net);
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win,
 				"Unable to connect to the net %s:%d (%s): %s\n",
 				ip, port, name, strerror(errno));
@@ -274,7 +274,7 @@ void *net_chat_join(void *arg)
 		goto end;
 	}
 	pthread_mutex_lock(&chat->output.lock);
-	wattrset(chat->output.win, ATTR_INFO);
+	wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 	wprintw(chat->output.win, "Joined net %s!\n", name);
 	pthread_mutex_unlock(&chat->output.lock);
 
@@ -283,15 +283,15 @@ void *net_chat_join(void *arg)
 		switch (req.type) {
 		case NET_REQUEST_MSG:
 			pthread_mutex_lock(&chat->output.lock);
-			wattrset(chat->output.win, ATTR_COMMAND);
+			wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
 			wprintw(chat->output.win, "%s> ", req.name);
-			wattrset(chat->output.win, ATTR_NORMAL);
+			wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
 			wprintw(chat->output.win, "%s\n", req.extra);
 			pthread_mutex_unlock(&chat->output.lock);
 			break;
 		case NET_REQUEST_SRV:
 			pthread_mutex_lock(&chat->output.lock);
-			wattrset(chat->output.win, ATTR_INFO);
+			wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 			wprintw(chat->output.win, "Server> %s\n", req.extra);
 			pthread_mutex_unlock(&chat->output.lock);
 			break;
@@ -316,9 +316,9 @@ void *net_chat_leave(void *arg)
 
 	if (job->numArgs != 0) {
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_NORMAL);
+		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
 		waddstr(chat->output.win, "usage: ");
-		wattrset(chat->output.win, ATTR_COMMAND);
+		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
 		waddstr(chat->output.win, "/leave\n");
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
@@ -337,23 +337,23 @@ static void *net_chat_challenge(void *arg)
 
 	if (job->numArgs != 0) {
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_NORMAL);
+		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
 		waddstr(chat->output.win, "usage: ");
-		wattrset(chat->output.win, ATTR_COMMAND);
+		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
 		waddstr(chat->output.win, "/challenge\n");
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
 	if (chat->net.socket == 0) {
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		waddstr(chat->output.win, "You are not part of a network.\n");
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
 	net_receiver_sendany(&chat->net, 0, NET_REQUEST_HIVE_CHALLENGE);
 	pthread_mutex_lock(&chat->output.lock);
-	wattrset(chat->output.win, ATTR_INFO);
+	wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 	waddstr(chat->output.win, "Sent a challenge to the server!\n");
 	pthread_mutex_unlock(&chat->output.lock);
 
@@ -411,7 +411,7 @@ int net_chat_exec(NetChat *chat)
 	if (cmd == NULL) {
 		exitCode = -1;
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win, "Command '%.*s' does not exist\n",
 			(int) n, chat->input.buffer + s);
 		pthread_mutex_unlock(&chat->output.lock);
@@ -431,7 +431,7 @@ int net_chat_exec(NetChat *chat)
 		if (job == NULL) {
 			exitCode = -1;
 			pthread_mutex_lock(&chat->output.lock);
-			wattrset(chat->output.win, ATTR_ERROR);
+			wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 			waddstr(chat->output.win,
 				"Too many jobs are already running!\n");
 			pthread_mutex_unlock(&chat->output.lock);
@@ -470,7 +470,7 @@ int net_chat_exec(NetChat *chat)
 	if (newArgs == NULL) {
 		exitCode = -1;
 		pthread_mutex_lock(&chat->output.lock);
-		wattrset(chat->output.win, ATTR_ERROR);
+		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		waddstr(chat->output.win, "Allocation error occurred.\n");
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;

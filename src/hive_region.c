@@ -160,26 +160,18 @@ void hive_region_renderpiece(HiveRegion *region, HivePiece *piece)
 		{ 4, 1 },
 		{ 0, 1 }
 	};
-	static const short pairs[3][3] = {
-		/* -1 because these values are unused */
-		{ -1, -1, -1},
-		{ HIVE_PAIR_BLACK,
-			HIVE_PAIR_BLACK_BLACK,
-			HIVE_PAIR_BLACK_WHITE },
-		{ HIVE_PAIR_WHITE,
-			HIVE_PAIR_WHITE_BLACK,
-			HIVE_PAIR_WHITE_WHITE },
-	};
 	Point world;
 	HivePiece *pieces[6];
+	short fg;
 
 	world = piece->position;
 	hive_pointtoworld(&world, region->translation);
 
-	wattr_set(region->win, A_REVERSE, (piece->flags & HIVE_SELECTED) ?
-		HIVE_PAIR_SELECTED : (piece->flags & HIVE_ISACTOR) ?
-		HIVE_PAIR_CHOICE : (piece->side == HIVE_WHITE ?
-			HIVE_PAIR_WHITE : HIVE_PAIR_BLACK), NULL);
+	wattr_set(region->win, 0, 0, NULL);
+	fg = (piece->flags & HIVE_SELECTED) ? COLOR_YELLOW :
+		(piece->flags & HIVE_ISACTOR) ? COLOR_GREEN :
+		piece->side == HIVE_WHITE ?  COLOR_BLUE : COLOR_RED;
+	wcolor_set(region->win, COLOR(COLOR_BLACK, fg), NULL);
 	mvwprintw(region->win, world.y, world.x + 1, " %s ",
 			pieceNames[(int) piece->type]);
 	const size_t count = hive_region_countat(region, piece->position);
@@ -190,15 +182,18 @@ void hive_region_renderpiece(HiveRegion *region, HivePiece *piece)
 
 	hive_region_getsurroundingr(region, piece->position, pieces);
 	for (int n = 0; n < 4; n++) {
+		short bg;
 		HivePiece *neighbor;
 
 		neighbor = n == 0 ? pieces[HIVE_NORTH_EAST] :
 			n == 1 ? pieces[HIVE_NORTH_WEST] :
 			n == 2 ? pieces[HIVE_SOUTH_WEST] :
 			pieces[HIVE_SOUTH_EAST];
-		const int side = neighbor == NULL ? 0 : neighbor->side + 1;
-		const short pair = pairs[(int) piece->side + 1][side];
-		wattr_set(region->win, 0, pair, NULL);
+		bg = neighbor == NULL ? COLOR_BLACK :
+			(neighbor->flags & HIVE_SELECTED) ? COLOR_YELLOW :
+			(neighbor->flags & HIVE_ISACTOR) ? COLOR_GREEN :
+			neighbor->side == HIVE_WHITE ?  COLOR_BLUE : COLOR_RED;
+		wcolor_set(region->win, COLOR(fg, bg), NULL);
 		const Point off = cellOffsets[n];
 		mvwaddstr(region->win, world.y + off.y, world.x + off.x,
 				triangles[n]);

@@ -34,7 +34,7 @@ void hive_pointtoworld(Point *point, Point translation)
 void hive_pointtogrid(Point *point, Point translation)
 {
 	point_subtract(point, translation);
-	point->x /= 4;
+	point->x = point->x < 0 ? point->x / 4 - 1 : point->x / 4;
 	point->y = (point->y - (point->x & 1)) / 2;
 }
 
@@ -393,11 +393,20 @@ static void hive_computemovespillbug(Hive *hive)
 {
 	HivePiece *pieces[6];
 
+	const Point last = hive->history.count == 0 ?
+		(Point) { INT_MIN, INT_MIN } :
+		hive->history.moves[hive->history.count - 1].to; 
 	hive_moveexhaustive(hive, hive->selectedPiece, false, 1);
+	/* can't carry a piece if the pillbug was recently moved */
+	if (point_isequal(last, hive->selectedPiece->position))
+		return;
 	hive_region_getsurrounding(&hive->board, hive->selectedPiece->position,
 			pieces);
 	for (int d = 0; d < 6; d++) {
 		HivePiece *const piece = pieces[d];
+		/* can't carry a recently moved piece */
+		if (point_isequal(last, piece->position))
+			return;
 		if (piece == NULL || hive_region_getbelow(&hive->board, piece)
 					== NULL ||
 				!hive_canmoveontop(hive,
@@ -586,8 +595,10 @@ static void hive_selectpiece(Hive *hive, HiveRegion *region, HivePiece *piece)
 			return;
 		}
 	}
-	if (piece->side != hive->turn)
+	if (piece->side != hive->turn) {
+		hive->selectedPiece = NULL;
 		return;
+	}
 	hive->selectedRegion = region;
 	hive->selectedPiece = piece;
 	piece->flags |= HIVE_SELECTED;
@@ -608,7 +619,7 @@ static HiveRegion *hive_getregionat(Hive *hive, Point at)
 	return NULL;
 }
 
-bool hive_handlemousepress(Hive *hive, Point mouse)
+bool hive_handlemousepress(Hive *hive, int button, Point mouse)
 {
 	HiveRegion *region;
 	Point pos;
@@ -626,17 +637,21 @@ bool hive_handlemousepress(Hive *hive, Point mouse)
 	pos = mouse;
 	wmouse_trafo(region->win, &pos.y, &pos.x, false);
 	hive_pointtogrid(&pos, region->translation);
-	if (!hive_transferpiece(hive, region, pos)) {
-		piece = hive_region_pieceatr(region, NULL, pos);
-		if (piece != NULL) {
-			hive_selectpiece(hive, region, piece);
-		} else {
-			if (hive->actor != NULL) {
-				hive->actor->flags &= ~HIVE_ISACTOR;
-				hive->actor = NULL;
+	switch (button) {
+	case 0:
+		if (!hive_transferpiece(hive, region, pos)) {
+			piece = hive_region_pieceatr(region, NULL, pos);
+			if (piece != NULL) {
+				hive_selectpiece(hive, region, piece);
+			} else {
+				if (hive->actor != NULL) {
+					hive->actor->flags &= ~HIVE_ISACTOR;
+					hive->actor = NULL;
+				}
+				hive->selectedPiece = NULL;
 			}
-			hive->selectedPiece = NULL;
 		}
+		break;
 	}
 	return true;
 }
@@ -670,20 +685,19 @@ void hive_render(Hive *hive)
 	if (hive->selectedPiece == NULL ||
 			hive->selectedRegion != &hive->board)
 		return;
-	wattr_set(hive->board.win, A_REVERSE, HIVE_PAIR_SELECTED, NULL);
+	wattr_set(hive->board.win, 0, COLOR(COLOR_BLACK, COLOR_YELLOW), NULL);
 	for (size_t i = 0; i < hive->moves.count; i++) {
 		p = hive->moves.points[i];
 		hive_pointtoworld(&p, hive->board.translation);
 		mvwaddstr(hive->board.win, p.y, p.x + 1, "   ");
 		mvwaddstr(hive->board.win, p.y + 1, p.x + 1, "   ");
 	}
-	wattr_set(hive->board.win, A_REVERSE, HIVE_PAIR_CHOICE, NULL);
+	wattr_set(hive->board.win, 0, COLOR(COLOR_BLACK, COLOR_GREEN), NULL);
 	for (size_t i = 0; i < hive->choices.count; i++) {
 		p = hive->choices.points[i];
 		hive_pointtoworld(&p, hive->board.translation);
 		mvwaddstr(hive->board.win, p.y, p.x + 1, "   ");
 		mvwaddstr(hive->board.win, p.y + 1, p.x + 1, "   ");
 	}
-
 	wnoutrefresh(hive->board.win);
 }

@@ -10,9 +10,12 @@ enum hive_type {
 	HIVE_LADYBUG,
 	HIVE_MOSQUITO,
 	HIVE_PILLBUG,
-	HIVE_PILLBUG_CARRYING,
 	HIVE_QUEEN,
 	HIVE_SPIDER,
+
+	/* special type for a special set of moves for pillbug that
+	 * has selected a pieces */
+	HIVE_PILLBUG_CARRYING,
 };
 
 #define HIVE_VISITED (1 << 0)
@@ -127,6 +130,6 @@ int hive_init(Hive *hive, int x, int y, int w, int h);
 void hive_domove(Hive *hive, const HiveMove *move, bool doNotify);
 void hive_render(Hive *hive);
 void hive_computemoves(Hive *hive, enum hive_type type);
-bool hive_handlemousepress(Hive *hive, Point mouse);
+bool hive_handlemousepress(Hive *hive, int button, Point mouse);
 int hive_handle(Hive *hive, int c);
 

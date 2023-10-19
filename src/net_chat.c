@@ -64,7 +64,8 @@ void net_chat_render(NetChat *chat)
 			yBeg, xBeg, yBeg + yMax - 1, xBeg + xMax);
 	pthread_mutex_unlock(&chat->output.lock);
 
-	wattrset(win, net_chat_iscommand(chat) ? ATTR_COMMAND : ATTR_NORMAL);
+	wattr_set(win, 0, net_chat_iscommand(chat) ? PAIR_COMMAND :
+			PAIR_NORMAL, NULL);
 	wmove(win, yMax, 0);
 	wclrtoeol(win);
 	wmove(win, yMax, 0);
@@ -177,7 +178,7 @@ int net_chat_handle(NetChat *chat, int c)
 			net_chat_writein(chat, "", 1);
 			if (chat->net.isServer) {
 				pthread_mutex_lock(&chat->output.lock);
-				wattrset(chat->output.win, ATTR_INFO);
+				wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 				wprintw(chat->output.win, "Server> %s\n",
 						chat->input.buffer);
 				pthread_mutex_unlock(&chat->output.lock);
@@ -190,7 +191,7 @@ int net_chat_handle(NetChat *chat, int c)
 			net_receiver_send(&chat->net, &req);
 		} else {
 			pthread_mutex_lock(&chat->output.lock);
-			wattrset(chat->output.win, ATTR_ERROR);
+			wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 			wprintw(chat->output.win,
 				"You are not connected to any network.\n");
 			pthread_mutex_unlock(&chat->output.lock);
