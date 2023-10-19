@@ -1,6 +1,5 @@
 #include "hex.h"
 
-/* :'<,'>s/\vNET_REQUEST_(\w\w\w)/[\0] = "\1"/g */
 static const char *typeNames[] = {
 	[NET_REQUEST_NONE] = "",
 	[NET_REQUEST_MSG] = "MSG",
@@ -9,6 +8,9 @@ static const char *typeNames[] = {
 	[NET_REQUEST_JIN] = "JIN",
 	[NET_REQUEST_LVE] = "LVE",
 	[NET_REQUEST_KCK] = "KCK",
+
+	[NET_REQUEST_HIVE_CHALLENGE] = "HCH",
+	[NET_REQUEST_HIVE_MOVE] = "HMV",
 };
 
 bool net_isvalidname(const char *name)
@@ -18,7 +20,7 @@ bool net_isvalidname(const char *name)
 	for (char ch; (ch = *name) != '\0'; name++, n++)
 		if (n >= NET_MAX_NAME && !isalpha(ch))
 			return false;
-	return true;
+	return n >= NET_MIN_NAME;
 }
 
 int net_porthash(const char *name)
@@ -36,7 +38,7 @@ int net_porthash(const char *name)
 	while (port < 10000)
 		port *= 10;
 	while (port > 60000)
-		port >>= 1;
+		port /= 2;
 	return port;
 }
 
@@ -49,6 +51,9 @@ int net_request_vinit(NetRequest *req, net_request_type_t type, va_list lorig)
 	req->type = type;
 	va_copy(l, lorig);
 	switch (type) {
+	case NET_REQUEST_HIVE_CHALLENGE:
+		/* no parameters */
+		break;
 	case NET_REQUEST_MSG:
 		name = va_arg(l, const char*);
 		extra = va_arg(l, const char*);
@@ -58,6 +63,7 @@ int net_request_vinit(NetRequest *req, net_request_type_t type, va_list lorig)
 		strcpy(req->name, name);
 		strcpy(req->extra, extra);
 		break;
+	case NET_REQUEST_HIVE_MOVE:
 	case NET_REQUEST_SRV:
 		extra = va_arg(l, const char*);
 		if (strlen(extra) >= sizeof(req->extra))
@@ -88,32 +94,38 @@ int net_request_init(NetRequest *req, net_request_type_t type, ...)
 
 const char *net_request_serialize(const NetRequest *req)
 {
-	static char msg[80 + 8 + NET_MAX_NAME + NET_EXTRA_SIZE + 8];
+	/* this array has an arbitrary size, it's based off estimates
+	 * and heavy rounding up
+	 */
+	static char data[128 + NET_MAX_NAME + 8 + NET_EXTRA_SIZE + 8];
 	size_t n;
 
-	n = sprintf(msg, "%ld.%ld %s:",
+	n = sprintf(data, "%ld.%ld %s:",
 			req->time.tv_sec, req->time.tv_usec,
 			typeNames[req->type]);
 	switch(req->type) {
+	case NET_REQUEST_HIVE_CHALLENGE:
+		break;
 	case NET_REQUEST_MSG:
-		strcpy(msg + n, req->name);
+		strcpy(data + n, req->name);
 		n += strlen(req->name);
-		msg[n++] = ' ';
+		data[n++] = ' ';
 		/* fall through */
+	case NET_REQUEST_HIVE_MOVE:
 	case NET_REQUEST_SRV:
-		strcpy(msg + n, req->extra);
+		strcpy(data + n, req->extra);
 		n += strlen(req->extra);
 		break;
 	case NET_REQUEST_SUN:
-		strcpy(msg + n, req->name);
+		strcpy(data + n, req->name);
 		n += strlen(req->name);
 		break;
 	default:
 		return NULL;
 	}
-	msg[n++] = '\n';
-	msg[n] = 0;
-	return msg;
+	data[n++] = '\r';
+	data[n] = 0;
+	return data;
 }
 
 int net_request_deserialize(NetRequest *req, const char *data)
@@ -143,6 +155,8 @@ int net_request_deserialize(NetRequest *req, const char *data)
 	data += i + 1; /* +1 for colon (:) */
 	req->type = type;
 	switch (type) {
+	case NET_REQUEST_HIVE_CHALLENGE:
+		break;
 	case NET_REQUEST_MSG:
 		for (i = 0; isalpha(data[i]); i++) {
 			if (i + 1 == sizeof(req->name))
@@ -156,8 +170,9 @@ int net_request_deserialize(NetRequest *req, const char *data)
 		while (isblank(*data))
 			data++;
 		/* fall through */
+	case NET_REQUEST_HIVE_MOVE:
 	case NET_REQUEST_SRV:
-		for (i = 0; data[i] != '\n'; i++) {
+		for (i = 0; data[i] != '\r'; i++) {
 			if (i + 1 == sizeof(req->extra))
 				return -1;
 			req->extra[i] = data[i];
@@ -183,7 +198,7 @@ int net_request_deserialize(NetRequest *req, const char *data)
 	}
 	while (isblank(*data))
 		data++;
-	if (*data != '\n')
+	if (*data != '\r')
 		return -1;
 	return 0;
 }

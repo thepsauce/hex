@@ -27,10 +27,12 @@ static int hc_deserializemove(const char *data, HiveMove *move)
 {
 	if (strncmp(data, "true ", sizeof("true")) == 0) {
 		move->fromInventory = true;
-		data += sizeof("true ");
+		data += sizeof("true");
 	} else if (strncmp(data, "false ", sizeof("false")) == 0) {
 		move->fromInventory = false;
-		data += sizeof("false ");
+		data += sizeof("false");
+	} else {
+		return -1;
 	}
 
 	move->from.x = strtol(data, (char**) &data, 10);
@@ -62,7 +64,7 @@ int hc_notifymove(void *ptr, const HiveMove *move)
 	(void) ptr;
 
 	data = hc_serializemove(move);
-	net_receiver_sendany(&hc->chat.net, -1, NET_REQUEST_HIVE_MOVE, data);
+	net_receiver_sendany(&hc->chat.net, 0, NET_REQUEST_HIVE_MOVE, data);
 	return 0;
 }
 

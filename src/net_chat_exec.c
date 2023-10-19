@@ -74,9 +74,10 @@ void *net_chat_host(void *arg)
 		pthread_mutex_lock(&chat->output.lock);
 		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win, "Invalid name '%s'."
-			"Only use letters and numbers and "
+			" Only use letters and numbers and "
 			"between 3 and 31 characters\n", name);
 		pthread_mutex_unlock(&chat->output.lock);
+		goto end;
 	}
 
 	strcpy(chat->name, name);
@@ -166,6 +167,13 @@ void *net_chat_host(void *arg)
 			pthread_mutex_unlock(&chat->output.lock);
 			break;
 		case NET_REQUEST_HIVE_CHALLENGE:
+			pthread_mutex_lock(&chat->output.lock);
+			wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
+			wprintw(chat->output.win,
+					"Got challenge from: %s (%d, %d).\n",
+					ent->name, chat->players[0].socket,
+					chat->players[1].socket);
+			pthread_mutex_unlock(&chat->output.lock);
 			if (chat->players[0].socket == 0 ||
 					net_receiver_indexof(&chat->net,
 					chat->players[0].socket) == (nfds_t) -1) {
@@ -352,10 +360,6 @@ static void *net_chat_challenge(void *arg)
 		goto end;
 	}
 	net_receiver_sendany(&chat->net, 0, NET_REQUEST_HIVE_CHALLENGE);
-	pthread_mutex_lock(&chat->output.lock);
-	wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
-	waddstr(chat->output.win, "Sent a challenge to the server!\n");
-	pthread_mutex_unlock(&chat->output.lock);
 
 end:
 	job->threadId = 0;

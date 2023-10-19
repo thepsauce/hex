@@ -136,7 +136,7 @@ bool net_receiver_nextrequest(NetReceiver *rcv, struct net_entry **pEntry, NetRe
 				goto disconnect;
 			}
 			entry->ptr += nBuf;
-			if ((chr = memchr(entry->data, '\n',
+			if ((chr = memchr(entry->data, '\r',
 						entry->ptr)) != NULL) {
 				chr++;
 				const size_t n = chr - entry->data;
@@ -188,6 +188,7 @@ int net_receiver_put(NetReceiver *rcv, int sock)
 	entry += rcv->numPollfds;
 	memset(entry, 0, sizeof(*entry));
 	strcpy(entry->name, "Anon");
+	entry->socket = sock;
 
 	fd = realloc(rcv->pollfds, sizeof(*rcv->pollfds) *
 			(rcv->numPollfds + 1));

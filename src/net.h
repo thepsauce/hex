@@ -19,20 +19,20 @@ bool net_isvalidname(const char *name);
 int net_porthash(const char *name);
 
 /* Request format:
- * [second].[nano seconds] [type]:[data]
+ * [second].[nano seconds] [type]:[data]\r
  */
 
 typedef enum net_request_type {
 	NET_REQUEST_NONE,
-	NET_REQUEST_MSG,
-	NET_REQUEST_SRV,
-	NET_REQUEST_SUN,
+	NET_REQUEST_MSG, /* [name] [msg] */
+	NET_REQUEST_SRV, /* [msg] */
+	NET_REQUEST_SUN, /* [name] */
 	NET_REQUEST_JIN,
 	NET_REQUEST_LVE,
 	NET_REQUEST_KCK,
 
-	NET_REQUEST_HIVE_CHALLENGE,
-	NET_REQUEST_HIVE_MOVE,
+	NET_REQUEST_HIVE_CHALLENGE, /* (nothing) */
+	NET_REQUEST_HIVE_MOVE, /* [move] */
 } net_request_type_t;
 
 typedef struct net_request {

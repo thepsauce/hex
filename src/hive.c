@@ -395,7 +395,7 @@ static void hive_computemovespillbug(Hive *hive)
 
 	const Point last = hive->history.count == 0 ?
 		(Point) { INT_MIN, INT_MIN } :
-		hive->history.moves[hive->history.count - 1].to; 
+		hive->history.moves[hive->history.count - 1].to;
 	hive_moveexhaustive(hive, hive->selectedPiece, false, 1);
 	/* can't carry a piece if the pillbug was recently moved */
 	if (point_isequal(last, hive->selectedPiece->position))
@@ -516,7 +516,10 @@ static bool hive_canplace(Hive *hive, Point pos)
 	return affirm;
 }
 
-void hive_domove(Hive *hive, const HiveMove *move, bool doNotify)
+/* this function assumes that the selected region and piece
+ * are already setup correctly
+ */
+static void hive_domove2(Hive *hive, const HiveMove *move, bool doNotify)
 {
 	hive_region_removepiece(hive->selectedRegion,
 			hive->selectedPiece);
@@ -531,6 +534,18 @@ void hive_domove(Hive *hive, const HiveMove *move, bool doNotify)
 	hive->turn = hive->turn == HIVE_WHITE ? HIVE_BLACK : HIVE_WHITE;
 	if (doNotify)
 		hc_notifymove(hive, move);
+}
+
+void hive_domove(Hive *hive, const HiveMove *move, bool doNotify)
+{
+	if (move->fromInventory)
+		hive->selectedRegion = hive->turn == HIVE_WHITE ?
+			&hive->whiteInventory : &hive->blackInventory;
+	else
+		hive->selectedRegion = &hive->board;
+	hive->selectedPiece = hive_region_pieceatr(hive->selectedRegion,
+			NULL, move->from);
+	hive_domove2(hive, move, doNotify);
 }
 
 static bool hive_transferpiece(Hive *hive, HiveRegion *region, Point pos)
@@ -548,13 +563,13 @@ static bool hive_transferpiece(Hive *hive, HiveRegion *region, Point pos)
 	hive->selectedPiece->flags &= ~HIVE_SELECTED;
 	/* transfer from inventory to board */
 	if (hive->selectedRegion == inventory && hive_canplace(hive, pos)) {
-		hive_domove(hive, &move, true);
+		hive_domove2(hive, &move, true);
 		return true;
 	}
 	/* move on the board */
 	if (hive->selectedRegion == &hive->board) {
 		if (point_list_contains(&hive->moves, pos)) {
-			hive_domove(hive, &move, true);
+			hive_domove2(hive, &move, true);
 			return true;
 		}
 		if (point_list_contains(&hive->choices, pos)) {
