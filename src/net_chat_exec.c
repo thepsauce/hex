@@ -1,43 +1,138 @@
 #include "hex.h"
 
-void *net_chat_setname(void *arg)
+static void *net_chat_help(void *arg);
+static void *net_chat_clear(void *arg);
+static void *net_chat_setname(void *arg);
+static void *net_chat_host(void *arg);
+static void *net_chat_join(void *arg);
+static void *net_chat_leave(void *arg);
+static void *net_chat_challenge(void *arg);
+
+static const struct chat_cmd {
+	const char *name;
+	const char *args;
+	const char *description;
+	void *(*proc)(void *arg);
+	bool isAsync;
+} all_commands[] = {
+	{ "help", "", "show this help", net_chat_help, false },
+	{ "clear", "", "clear the chat window", net_chat_clear, false },
+	{ "setname", "[name]", "set your user name or the server name", net_chat_setname, true },
+	{ "host", "[name]", "start a server", net_chat_host, true },
+	{ "join", "[ip] [name]", "join a server", net_chat_join, true },
+	{ "leave", "", "leave the current network", net_chat_leave, true },
+	{ "challenge", "", "make a challenge or accept a challenge", net_chat_challenge, true },
+};
+
+static bool net_chat_iscorrectargs(NetChat *chat,
+		const struct chat_cmd *cmd, const NetChatJob *job)
+{
+	int neededArgs;
+	const char *args, *end;
+	const char *cur;
+
+	args = cmd->args;
+	neededArgs = 0;
+	while (*args != '\0') {
+		end = strchr(args, ' ');
+		if (end == NULL)
+			end = args + strlen(args);
+		else
+			end++;
+		neededArgs++;
+		args = end;
+	}
+	if (neededArgs != job->numArgs)
+		return false;
+	args = cmd->args;
+	cur = job->args;
+	while (*args != '\0') {
+		end = strchr(args, ' ');
+		if (end == NULL)
+			end = args + strlen(args);
+		else
+			end++;
+		if (!memcmp(args, "[name]", sizeof("[name]") - 1)) {
+			if (!net_isvalidname(cur)) {
+				pthread_mutex_lock(&chat->output.lock);
+				wattr_set(chat->output.win, 0, PAIR_ERROR,
+						NULL);
+				wprintw(chat->output.win, "Invalid name '%s'."
+					" Only use letters and numbers and "
+					"between 3 and 31 characters\n", cur);
+				pthread_mutex_unlock(&chat->output.lock);
+				return false;
+			}
+		}
+		cur += strlen(cur) + 1;
+		args = end;
+	}
+	return true;
+}
+
+static void *net_chat_help(void *arg)
+{
+	NetChatJob *const job = (NetChatJob*) arg;
+	NetChat *const chat = (NetChat*) job->chat;
+	WINDOW *const win = chat->output.win;
+
+	pthread_mutex_lock(&chat->output.lock);
+	wattr_set(win, 0, PAIR_NORMAL, NULL);
+	waddstr(win, "This is an implementation of a chat service and the great board game hive, you can find the rules to the game on: https://www.gen42.com/download/rules/hive/Hive_English_Rules.pdf or navigate to them on the official website: https://www.gen42.com\n\n");
+	waddstr(win, "You can use commands by typing '/[command name] [arguments]'\n");
+	waddstr(win, "These are commands you can use inside this chat window, there are all commands:\n");
+	for (size_t i = 0; i < ARRLEN(all_commands); i++) {
+		const char *args;
+		const char *end;
+
+		waddch(win, '\t');
+		wattr_set(win, 0, PAIR_COMMAND, NULL);
+		waddstr(win, all_commands[i].name);
+		args = all_commands[i].args;
+		wattr_set(win, 0, PAIR_ARGUMENT, NULL);
+		if (*args != '\0')
+			waddch(win, ' ');
+		while (*args != '\0') {
+			end = strchr(args, ' ');
+			if (end == NULL)
+				end = args + strlen(args);
+			else
+				end++;
+			waddnstr(win, args, end - args);
+			args = end;
+		}
+		wattr_set(win, 0, PAIR_NORMAL, NULL);
+		wprintw(win, " - %s\n", all_commands[i].description);
+	}
+	pthread_mutex_unlock(&chat->output.lock);
+	return NULL;
+}
+
+static void *net_chat_clear(void *arg)
+{
+	NetChatJob *const job = (NetChatJob*) arg;
+	NetChat *const chat = (NetChat*) job->chat;
+	pthread_mutex_lock(&chat->output.lock);
+	werase(chat->output.win);
+	pthread_mutex_unlock(&chat->output.lock);
+	return NULL;
+}
+
+static void *net_chat_setname(void *arg)
 {
 	NetChatJob *const job = (NetChatJob*) arg;
 	NetChat *const chat = (NetChat*) job->chat;
 	char *name;
 
-	if (job->numArgs != 1) {
-		pthread_mutex_lock(&chat->output.lock);
-		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
-		waddstr(chat->output.win, "usage: ");
-		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
-		waddstr(chat->output.win, "/setname ");
-		wattr_set(chat->output.win, 0, PAIR_ARGUMENT, NULL);
-		waddstr(chat->output.win, "[name]\n");
-		pthread_mutex_unlock(&chat->output.lock);
-		goto end;
-	}
 	name = job->args;
-	if (!net_isvalidname(name)) {
-		pthread_mutex_lock(&chat->output.lock);
-		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
-		wprintw(chat->output.win, "Invalid name '%s'."
-			"Only use letters and numbers and "
-			"between 3 and 31 characters\n", name);
-		pthread_mutex_unlock(&chat->output.lock);
-		goto end;
-	}
-
 	if (chat->net.socket > 0)
 		net_receiver_sendany(&chat->net, 0, NET_REQUEST_SUN, name);
 	strcpy(chat->name, name);
-
-end:
 	job->threadId = 0;
 	return NULL;
 }
 
-void *net_chat_host(void *arg)
+static void *net_chat_host(void *arg)
 {
 	NetChatJob *const job = (NetChatJob*) arg;
 	NetChat *const chat = (NetChat*) job->chat;
@@ -49,19 +144,7 @@ void *net_chat_host(void *arg)
 	NetRequest req;
 	struct net_entry *ent;
 
-	if (job->numArgs != 1) {
-		pthread_mutex_lock(&chat->output.lock);
-		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
-		waddstr(chat->output.win, "usage: ");
-		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
-		waddstr(chat->output.win, "/host ");
-		wattr_set(chat->output.win, 0, PAIR_ARGUMENT, NULL);
-		waddstr(chat->output.win, "[name]\n");
-		pthread_mutex_unlock(&chat->output.lock);
-		goto end;
-	}
 	args = job->args;
-
 	if (chat->net.socket > 0) {
 		pthread_mutex_lock(&chat->output.lock);
 		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
@@ -70,23 +153,13 @@ void *net_chat_host(void *arg)
 		goto end;
 	}
 	name = args;
-	if (!net_isvalidname(name)) {
-		pthread_mutex_lock(&chat->output.lock);
-		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
-		wprintw(chat->output.win, "Invalid name '%s'."
-			" Only use letters and numbers and "
-			"between 3 and 31 characters\n", name);
-		pthread_mutex_unlock(&chat->output.lock);
-		goto end;
-	}
-
 	strcpy(chat->name, name);
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0 ||
 			net_receiver_init(&chat->net, sock, true) < 0) {
 		close(sock);
 		pthread_mutex_lock(&chat->output.lock);
 		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
-		wprintw(chat->output.win, "Unable to create net: %s\n", strerror(errno));
+		wprintw(chat->output.win, "Unable to create server: %s\n", strerror(errno));
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
@@ -99,7 +172,7 @@ void *net_chat_host(void *arg)
 		pthread_mutex_lock(&chat->output.lock);
 		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win,
-				"Unable to bind net %s: %s\n",
+				"Unable to bind server %s: %s\n",
 				name, strerror(errno));
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
@@ -118,7 +191,7 @@ void *net_chat_host(void *arg)
 
 	pthread_mutex_lock(&chat->output.lock);
 	wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
-	wprintw(chat->output.win, "Now hosting net '%s' at %d!\n",
+	wprintw(chat->output.win, "Now hosting server '%s' at %d!\n",
 		name, port);
 	pthread_mutex_unlock(&chat->output.lock);
 	while (net_receiver_nextrequest(&chat->net, &ent, &req)) {
@@ -213,7 +286,7 @@ end:
 	return NULL;
 }
 
-void *net_chat_join(void *arg)
+static void *net_chat_join(void *arg)
 {
 	NetChatJob *const job = (NetChatJob*) arg;
 	NetChat *const chat = (NetChat*) job->chat;
@@ -224,17 +297,6 @@ void *net_chat_join(void *arg)
 	NetRequest req;
 	struct net_entry *ent;
 
-	if (job->numArgs != 2) {
-		pthread_mutex_lock(&chat->output.lock);
-		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
-		waddstr(chat->output.win, "usage: ");
-		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
-		waddstr(chat->output.win, "/join ");
-		wattr_set(chat->output.win, 0, PAIR_ARGUMENT, NULL);
-		waddstr(chat->output.win, "[ip] [name]\n");
-		pthread_mutex_unlock(&chat->output.lock);
-		goto end;
-	}
 	if (chat->net.socket > 0) {
 		pthread_mutex_lock(&chat->output.lock);
 		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
@@ -263,11 +325,12 @@ void *net_chat_join(void *arg)
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
 	if (inet_pton(AF_INET, ip, &addr.sin_addr) <= 0) {
+		const int err = errno;
 		net_receiver_uninit(&chat->net);
 		pthread_mutex_lock(&chat->output.lock);
 		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
-		wprintw(chat->output.win, "Unable to read ip address %s: %s\n",
-				ip, strerror(errno));
+		wprintw(chat->output.win, "Unable to read ip address '%s': %s\n",
+				ip, err == 0 ? "invalid format" : strerror(err));
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
@@ -276,14 +339,14 @@ void *net_chat_join(void *arg)
 		pthread_mutex_lock(&chat->output.lock);
 		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win,
-				"Unable to connect to the net %s:%d (%s): %s\n",
+				"Unable to connect to the server %s:%d (%s): %s\n",
 				ip, port, name, strerror(errno));
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
 	pthread_mutex_lock(&chat->output.lock);
 	wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
-	wprintw(chat->output.win, "Joined net %s!\n", name);
+	wprintw(chat->output.win, "Joined server %s!\n", name);
 	pthread_mutex_unlock(&chat->output.lock);
 
 	net_receiver_sendany(&chat->net, 0, NET_REQUEST_SUN, chat->name);
@@ -317,23 +380,11 @@ end:
 	return NULL;
 }
 
-void *net_chat_leave(void *arg)
+static void *net_chat_leave(void *arg)
 {
 	NetChatJob *const job = (NetChatJob*) arg;
 	NetChat *const chat = (NetChat*) job->chat;
-
-	if (job->numArgs != 0) {
-		pthread_mutex_lock(&chat->output.lock);
-		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
-		waddstr(chat->output.win, "usage: ");
-		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
-		waddstr(chat->output.win, "/leave\n");
-		pthread_mutex_unlock(&chat->output.lock);
-		goto end;
-	}
 	net_receiver_uninit(&chat->net);
-
-end:
 	job->threadId = 0;
 	return NULL;
 }
@@ -342,16 +393,6 @@ static void *net_chat_challenge(void *arg)
 {
 	NetChatJob *const job = (NetChatJob*) arg;
 	NetChat *const chat = (NetChat*) job->chat;
-
-	if (job->numArgs != 0) {
-		pthread_mutex_lock(&chat->output.lock);
-		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
-		waddstr(chat->output.win, "usage: ");
-		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
-		waddstr(chat->output.win, "/challenge\n");
-		pthread_mutex_unlock(&chat->output.lock);
-		goto end;
-	}
 	if (chat->net.socket == 0) {
 		pthread_mutex_lock(&chat->output.lock);
 		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
@@ -368,20 +409,8 @@ end:
 
 int net_chat_exec(NetChat *chat)
 {
-	static const struct cmd {
-		const char *name;
-		void *(*proc)(void *arg);
-		bool isAsync;
-	} commands[] = {
-		{ "setname", net_chat_setname, true },
-		{ "host", net_chat_host, true },
-		{ "join", net_chat_join, true },
-		{ "leave", net_chat_leave, true },
-		{ "challenge", net_chat_challenge, true },
-	};
-
 	size_t i, s, n;
-	const struct cmd *cmd;
+	const struct chat_cmd *cmd;
 	NetChatJob *job;
 	int exitCode;
 
@@ -406,17 +435,17 @@ int net_chat_exec(NetChat *chat)
 
 	/* try to find the command */
 	cmd = NULL;
-	for (size_t c = 0; c < ARRLEN(commands); c++)
-		if (!strncmp(commands[c].name, chat->input.buffer + s, n)
-				&& commands[c].name[n] == '\0') {
-			cmd = commands + c;
+	for (size_t c = 0; c < ARRLEN(all_commands); c++)
+		if (!strncmp(all_commands[c].name, chat->input.buffer + s, n)
+				&& all_commands[c].name[n] == '\0') {
+			cmd = all_commands + c;
 			break;
 		}
 	if (cmd == NULL) {
 		exitCode = -1;
 		pthread_mutex_lock(&chat->output.lock);
 		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
-		wprintw(chat->output.win, "Command '%.*s' does not exist\n",
+		wprintw(chat->output.win, "Command '%.*s' does not exist.\n",
 			(int) n, chat->input.buffer + s);
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
@@ -481,6 +510,18 @@ int net_chat_exec(NetChat *chat)
 	}
 	job->args = newArgs;
 	memcpy(job->args, chat->input.buffer, chat->input.length);
+	if (!net_chat_iscorrectargs(chat, cmd, job)) {
+		exitCode = -1;
+		pthread_mutex_lock(&chat->output.lock);
+		wattr_set(chat->output.win, 0, PAIR_NORMAL, NULL);
+		waddstr(chat->output.win, "usage: ");
+		wattr_set(chat->output.win, 0, PAIR_COMMAND, NULL);
+		wprintw(chat->output.win, "/%s ", cmd->name);
+		wattr_set(chat->output.win, 0, PAIR_ARGUMENT, NULL);
+		wprintw(chat->output.win, "%s\n", cmd->args);
+		pthread_mutex_unlock(&chat->output.lock);
+		goto end;
+	}
 	if (cmd->isAsync)
 		pthread_create(&job->threadId, NULL, cmd->proc, job);
 	else

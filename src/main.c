@@ -19,6 +19,7 @@ int main(int argc, char *argv[])
 
 		net_chat_render(chat);
 		hive_render(hive);
+		hc_renderstatus(&hive_chat);
 		doupdate();
 		/* separator line */
 		attr_set(0, 0, NULL);
@@ -57,6 +58,7 @@ int main(int argc, char *argv[])
 				switch (c) {
 				case 'w': case 'W':
 					inChat = !inChat;
+					curs_set(inChat);
 					break;
 				}
 				break;

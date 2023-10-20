@@ -69,12 +69,15 @@ void point_list_clear(PointList *list);
 
 enum {
 	/* 0 is the reserved default attribute */
-	/* 1 to 256 are the normal color pairs */
-	PAIR_NORMAL = 257,
+	/* 1 to 65 are the normal color pairs */
+	PAIR_NORMAL = 66,
 	PAIR_ERROR,
 	PAIR_INFO,
 	PAIR_COMMAND,
 	PAIR_ARGUMENT,
+
+	PAIR_STATUS_NORMAL,
+	PAIR_STATUS_INFO,
 };
 
 #define COLOR(fg, bg) (1 + (fg) + (bg) * 8)

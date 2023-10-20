@@ -1,6 +1,8 @@
 /* this is the interface to connect chat and hive, hc stands for hive-chat */
 
 typedef struct hc {
+	/* pad window to keep the status bar */
+	WINDOW *status;
 	/* this is false if the board and the server
 	 * are not in sync, this is also false when
 	 * there is no server to send moves to
@@ -11,6 +13,7 @@ typedef struct hc {
 } HiveChat;
 
 void hc_init(HiveChat *hc);
+void hc_renderstatus(HiveChat *hc);
 
 extern HiveChat hive_chat;
 

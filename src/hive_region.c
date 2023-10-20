@@ -161,6 +161,36 @@ static const Point cell_offsets[] = {
 	{ 0, 1 }
 };
 
+void hive_region_renderhexat(HiveRegion *region, short fg, Point at)
+{
+	Point world;
+	HivePiece *pieces[6];
+
+	world = at;
+	hive_pointtoworld(&world, region->translation);
+	wattr_set(region->win, 0, COLOR(COLOR_BLACK, fg), NULL);
+	mvwaddstr(region->win, world.y, world.x + 1, "   ");
+	mvwaddstr(region->win, world.y + 1, world.x + 1, "   ");
+	hive_region_getsurroundingr(region, at, pieces);
+	for (int n = 0; n < 4; n++) {
+		short bg;
+		HivePiece *neighbor;
+
+		neighbor = n == 0 ? pieces[HIVE_NORTH_EAST] :
+			n == 1 ? pieces[HIVE_NORTH_WEST] :
+			n == 2 ? pieces[HIVE_SOUTH_WEST] :
+			pieces[HIVE_SOUTH_EAST];
+		bg = neighbor == NULL ? COLOR_BLACK :
+			(neighbor->flags & HIVE_SELECTED) ? COLOR_YELLOW :
+			(neighbor->flags & HIVE_ISACTOR) ? COLOR_GREEN :
+			neighbor->side == HIVE_WHITE ?  COLOR_BLUE : COLOR_RED;
+		wcolor_set(region->win, COLOR(fg, bg), NULL);
+		const Point off = cell_offsets[n];
+		mvwaddstr(region->win, world.y + off.y, world.x + off.x,
+				side_triangles[n]);
+	}
+}
+
 void hive_region_renderpieceat(HiveRegion *region, HivePiece *piece,
 		size_t cnt, Point at)
 {
@@ -170,7 +200,6 @@ void hive_region_renderpieceat(HiveRegion *region, HivePiece *piece,
 	wattr_set(region->win, 0, COLOR(COLOR_BLACK, fg), NULL);
 	mvwprintw(region->win, at.y, at.x + 1, " %s ",
 			piece_names[(int) piece->type]);
-	mvwaddstr(region->win, at.y + 1, at.x + 1, "   ");
 	if (cnt > 1)
 		mvwprintw(region->win, at.y + 1, at.x + 1, " %zu ", cnt);
 	else

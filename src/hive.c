@@ -65,61 +65,80 @@ void hive_move_list_clear(HiveMoveList *list)
 	list->count = 0;
 }
 
+static const HivePiece default_black_pieces[] = {
+	{ .side = HIVE_BLACK, .type = HIVE_ANT, .position = { 5, 1 } },
+	{ .side = HIVE_BLACK, .type = HIVE_ANT, .position = { 6, 1 } },
+	{ .side = HIVE_BLACK, .type = HIVE_ANT, .position = { 7, 1 } },
+	{ .side = HIVE_BLACK, .type = HIVE_BEETLE, .position = { 1, 0 } },
+	{ .side = HIVE_BLACK, .type = HIVE_BEETLE, .position = { 2, 0 } },
+	{ .side = HIVE_BLACK, .type = HIVE_GRASSHOPPER, .position = { 3, 0 } },
+	{ .side = HIVE_BLACK, .type = HIVE_GRASSHOPPER, .position = { 4, 0 } },
+	{ .side = HIVE_BLACK, .type = HIVE_GRASSHOPPER, .position = { 5, 0 } },
+	{ .side = HIVE_BLACK, .type = HIVE_LADYBUG, .position = { 0, 1 } },
+	{ .side = HIVE_BLACK, .type = HIVE_MOSQUITO, .position = { 1, 1 } },
+	{ .side = HIVE_BLACK, .type = HIVE_PILLBUG, .position = { 2, 1 } },
+	{ .side = HIVE_BLACK, .type = HIVE_QUEEN, .position = { 0, 0 } },
+	{ .side = HIVE_BLACK, .type = HIVE_SPIDER, .position = { 6, 0 } },
+	{ .side = HIVE_BLACK, .type = HIVE_SPIDER, .position = { 7, 0 } },
+};
+
+static const HivePiece default_white_pieces[] = {
+	{ .side = HIVE_WHITE, .type = HIVE_ANT, .position = { 5, 1 } },
+	{ .side = HIVE_WHITE, .type = HIVE_ANT, .position = { 6, 1 } },
+	{ .side = HIVE_WHITE, .type = HIVE_ANT, .position = { 7, 1 } },
+	{ .side = HIVE_WHITE, .type = HIVE_BEETLE, .position = { 1, 0 } },
+	{ .side = HIVE_WHITE, .type = HIVE_BEETLE, .position = { 2, 0 } },
+	{ .side = HIVE_WHITE, .type = HIVE_GRASSHOPPER, .position = { 3, 0 } },
+	{ .side = HIVE_WHITE, .type = HIVE_GRASSHOPPER, .position = { 4, 0 } },
+	{ .side = HIVE_WHITE, .type = HIVE_GRASSHOPPER, .position = { 5, 0 } },
+	{ .side = HIVE_WHITE, .type = HIVE_LADYBUG, .position = { 0, 1 } },
+	{ .side = HIVE_WHITE, .type = HIVE_MOSQUITO, .position = { 1, 1 } },
+	{ .side = HIVE_WHITE, .type = HIVE_PILLBUG, .position = { 2, 1 } },
+	{ .side = HIVE_WHITE, .type = HIVE_QUEEN, .position = { 0, 0 } },
+	{ .side = HIVE_WHITE, .type = HIVE_SPIDER, .position = { 6, 0 } },
+	{ .side = HIVE_WHITE, .type = HIVE_SPIDER, .position = { 7, 0 } },
+};
+
 int hive_init(Hive *hive, int x, int y, int w, int h)
 {
-	static const HivePiece defaultBlackPieces[] = {
-		{ .side = HIVE_BLACK, .type = HIVE_ANT, .position = { 8, 0 } },
-		{ .side = HIVE_BLACK, .type = HIVE_ANT, .position = { 9, 0 } },
-		{ .side = HIVE_BLACK, .type = HIVE_ANT, .position = { 10, 0 } },
-		{ .side = HIVE_BLACK, .type = HIVE_BEETLE, .position = { 1, 0 } },
-		{ .side = HIVE_BLACK, .type = HIVE_BEETLE, .position = { 2, 0 } },
-		{ .side = HIVE_BLACK, .type = HIVE_GRASSHOPPER, .position = { 3, 0 } },
-		{ .side = HIVE_BLACK, .type = HIVE_GRASSHOPPER, .position = { 4, 0 } },
-		{ .side = HIVE_BLACK, .type = HIVE_GRASSHOPPER, .position = { 5, 0 } },
-		{ .side = HIVE_BLACK, .type = HIVE_LADYBUG, .position = { 0, 1 } },
-		{ .side = HIVE_BLACK, .type = HIVE_MOSQUITO, .position = { 1, 1 } },
-		{ .side = HIVE_BLACK, .type = HIVE_PILLBUG, .position = { 2, 1 } },
-		{ .side = HIVE_BLACK, .type = HIVE_QUEEN, .position = { 0, 0 } },
-		{ .side = HIVE_BLACK, .type = HIVE_SPIDER, .position = { 6, 0 } },
-		{ .side = HIVE_BLACK, .type = HIVE_SPIDER, .position = { 7, 0 } },
-	};
-
-	static const HivePiece defaultWhitePieces[] = {
-		{ .side = HIVE_WHITE, .type = HIVE_ANT, .position = { 8, 0 } },
-		{ .side = HIVE_WHITE, .type = HIVE_ANT, .position = { 9, 0 } },
-		{ .side = HIVE_WHITE, .type = HIVE_ANT, .position = { 10, 0 } },
-		{ .side = HIVE_WHITE, .type = HIVE_BEETLE, .position = { 1, 0 } },
-		{ .side = HIVE_WHITE, .type = HIVE_BEETLE, .position = { 2, 0 } },
-		{ .side = HIVE_WHITE, .type = HIVE_GRASSHOPPER, .position = { 3, 0 } },
-		{ .side = HIVE_WHITE, .type = HIVE_GRASSHOPPER, .position = { 4, 0 } },
-		{ .side = HIVE_WHITE, .type = HIVE_GRASSHOPPER, .position = { 5, 0 } },
-		{ .side = HIVE_WHITE, .type = HIVE_LADYBUG, .position = { 0, 1 } },
-		{ .side = HIVE_WHITE, .type = HIVE_MOSQUITO, .position = { 1, 1 } },
-		{ .side = HIVE_WHITE, .type = HIVE_PILLBUG, .position = { 2, 1 } },
-		{ .side = HIVE_WHITE, .type = HIVE_QUEEN, .position = { 0, 0 } },
-		{ .side = HIVE_WHITE, .type = HIVE_SPIDER, .position = { 6, 0 } },
-		{ .side = HIVE_WHITE, .type = HIVE_SPIDER, .position = { 7, 0 } },
-	};
 	memset(hive, 0, sizeof(*hive));
-	memcpy(&hive->allPieces[ARRLEN(defaultWhitePieces)],
-			defaultBlackPieces, sizeof(defaultBlackPieces));
+	memcpy(&hive->allPieces[ARRLEN(default_white_pieces)],
+			default_black_pieces, sizeof(default_black_pieces));
 	memcpy(hive->allPieces,
-			defaultWhitePieces, sizeof(defaultWhitePieces));
+			default_white_pieces, sizeof(default_white_pieces));
 
 	hive_region_init(&hive->blackInventory,
 			x, y + h - h / 5, w, h / 5);
-	for (size_t i = 0; i < ARRLEN(defaultBlackPieces); i++)
+	for (size_t i = 0; i < ARRLEN(default_black_pieces); i++)
 		hive_region_addpiece(&hive->blackInventory,
-				&hive->allPieces[ARRLEN(defaultBlackPieces) + i]);
+				&hive->allPieces[ARRLEN(default_black_pieces) + i]);
 
 	hive_region_init(&hive->whiteInventory,
 			x, y, w, h / 5);
-	for (size_t i = 0; i < ARRLEN(defaultWhitePieces); i++)
+	for (size_t i = 0; i < ARRLEN(default_white_pieces); i++)
 		hive_region_addpiece(&hive->whiteInventory,
 				&hive->allPieces[i]);
 
 	hive_region_init(&hive->board, x, y + h / 5, w, h - 2 * (h / 5));
 	return 0;
+}
+
+void hive_reset(Hive *hive)
+{
+	for (size_t i = 0; i < ARRLEN(hive->regions); i++)
+		hive->regions[i].numPieces = 0;
+
+	for (size_t i = 0; i < ARRLEN(default_black_pieces); i++)
+		hive_region_addpiece(&hive->blackInventory,
+				&hive->allPieces[ARRLEN(default_black_pieces) + i]);
+	for (size_t i = 0; i < ARRLEN(default_white_pieces); i++)
+		hive_region_addpiece(&hive->whiteInventory,
+				&hive->allPieces[i]);
+	hive->selectedPiece = NULL;
+	hive->turn = HIVE_BLACK;
+	hive->moves.count = 0;
+	hive->choices.count = 0;
+	hive->history.count = 0;
 }
 
 struct keeper {
@@ -482,6 +501,19 @@ static bool hive_canmoveaway(Hive *hive)
 		hive->board.numPieces - 1;
 }
 
+bool hive_isqueensurrounded(Hive *hive)
+{
+	HivePiece *pieces[6];
+
+	for (size_t i = 0; i < hive->board.numPieces; i++) {
+		HivePiece *const piece = hive->board.pieces[i];
+		if (piece->side == hive->turn && piece->type == HIVE_QUEEN)
+			return hive_region_getsurrounding(&hive->board,
+					piece->position, pieces) == 6;
+	}
+	return false;
+}
+
 void hive_computemoves(Hive *hive, enum hive_type type)
 {
 	static void (*const computes[])(Hive *hive) = {
@@ -497,13 +529,13 @@ void hive_computemoves(Hive *hive, enum hive_type type)
 	};
 	point_list_clear(&hive->moves);
 	point_list_clear(&hive->choices);
-	if (hive_canmoveaway(hive))
+	if (!hive_isqueensurrounded(hive) && hive_canmoveaway(hive))
 		computes[type](hive);
 }
 
 static bool hive_canplace(Hive *hive, Point pos)
 {
-	HivePiece *surrounding[6];
+	HivePiece *pieces[6];
 	bool affirm;
 
 	if (hive->board.numPieces == 0)
@@ -535,12 +567,12 @@ static bool hive_canplace(Hive *hive, Point pos)
 
 	if (hive_region_pieceat(&hive->board, NULL, pos) != NULL)
 		return false;
-	if (hive_region_getsurroundingr(&hive->board, pos, surrounding) == 1 &&
+	if (hive_region_getsurroundingr(&hive->board, pos, pieces) == 1 &&
 			hive->board.numPieces == 1)
 		return true;
 	affirm = false;
 	for (int i = 0; i < 6; i++) {
-		HivePiece *const piece = surrounding[i];
+		HivePiece *const piece = pieces[i];
 		if (piece == NULL)
 			continue;
 		if (piece->side != hive->turn)
@@ -669,11 +701,32 @@ static HiveRegion *hive_getregionat(Hive *hive, Point at)
 	return NULL;
 }
 
+static void hive_pressposition(Hive *hive, HiveRegion *region, Point pos)
+{
+	HivePiece *piece;
+
+	if (!hive_transferpiece(hive, region, pos)) {
+		piece = hive_region_pieceatr(region, NULL, pos);
+		if (piece != NULL) {
+			hive_selectpiece(hive, region, piece);
+		} else {
+			if (hive->actor != NULL) {
+				hive->actor->flags &= ~HIVE_ISACTOR;
+				hive->actor = NULL;
+			}
+			if (hive->selectedPiece != NULL) {
+				hive->selectedPiece->flags &=
+					~HIVE_SELECTED;
+				hive->selectedPiece = NULL;
+			}
+		}
+	}
+}
+
 bool hive_handlemousepress(Hive *hive, int button, Point mouse)
 {
 	HiveRegion *region;
 	Point pos;
-	HivePiece *piece;
 
 	region = hive_getregionat(hive, mouse);
 	if (region == NULL) {
@@ -681,7 +734,11 @@ bool hive_handlemousepress(Hive *hive, int button, Point mouse)
 			hive->actor->flags &= ~HIVE_ISACTOR;
 			hive->actor = NULL;
 		}
-		hive->selectedPiece = NULL;
+		if (hive->selectedPiece != NULL) {
+			hive->selectedPiece->flags &=
+				~HIVE_SELECTED;
+			hive->selectedPiece = NULL;
+		}
 		return false;
 	}
 	pos = mouse;
@@ -689,18 +746,7 @@ bool hive_handlemousepress(Hive *hive, int button, Point mouse)
 	hive_pointtogrid(&pos, region->translation);
 	switch (button) {
 	case 0:
-		if (!hive_transferpiece(hive, region, pos)) {
-			piece = hive_region_pieceatr(region, NULL, pos);
-			if (piece != NULL) {
-				hive_selectpiece(hive, region, piece);
-			} else {
-				if (hive->actor != NULL) {
-					hive->actor->flags &= ~HIVE_ISACTOR;
-					hive->actor = NULL;
-				}
-				hive->selectedPiece = NULL;
-			}
-		}
+		hive_pressposition(hive, region, pos);
 		break;
 	}
 	return true;
@@ -708,23 +754,114 @@ bool hive_handlemousepress(Hive *hive, int button, Point mouse)
 
 int hive_handle(Hive *hive, int c)
 {
-	switch(c) {
+	HiveRegion *region;
+
+	if (hive->selectedRegion == NULL)
+		hive->selectedRegion = &hive->board;
+	region = hive->selectedRegion;
+	switch (c) {
+		size_t i;
+		HivePiece *next;
+
+	case '0':
+		region->translation.x = 0;
+		region->translation.y = 0;
+		break;
 	case KEY_LEFT:
-		hive->board.translation.x--;
+		if (hive->isLocked)
+			hive->hexCursor.x--;
+		else
+			region->translation.x--;
 		break;
 	case KEY_RIGHT:
-		hive->board.translation.x++;
+		if (hive->isLocked)
+			hive->hexCursor.x++;
+		else
+			region->translation.x++;
 		break;
 	case KEY_UP:
-		hive->board.translation.y--;
+		if (hive->isLocked)
+			hive->hexCursor.y--;
+		else
+			region->translation.y--;
 		break;
 	case KEY_DOWN:
-		hive->board.translation.y++;
+		if (hive->isLocked)
+			hive->hexCursor.y++;
+		else
+			region->translation.y++;
 		break;
+
+	case '\n':
+	case '\r':
+		if (hive->isLocked)
+			hive_pressposition(hive, &hive->board, hive->hexCursor);
+		hive->isLocked = !hive->isLocked;
+		break;
+
 	case 0x7f:
 	case KEY_BACKSPACE:
+		for (i = region->numPieces; i > 0; ) {
+			HivePiece *const piece = region->pieces[--i];
+			if (piece == hive->selectedPiece)
+				break;
+		}
+		next = NULL;
+		for (; i > 0; ) {
+			HivePiece *const piece = region->pieces[--i];
+			if (piece->side == hive->turn) {
+				next = piece;
+				break;
+			}
+		}
+		while (next == NULL) {
+			if (region != &hive->board)
+				region = &hive->board;
+			else
+				region = hive->turn == HIVE_WHITE ?
+					&hive->whiteInventory :
+					&hive->blackInventory;
+			for (i = region->numPieces; i > 0; ) {
+				HivePiece *const piece = region->pieces[--i];
+				if (piece->side == hive->turn) {
+					next = piece;
+					break;
+				}
+			}
+		}
+		hive_selectpiece(hive, region, next);
 		break;
+
 	case ' ':
+		for (i = 0; i < region->numPieces; i++) {
+			HivePiece *const piece = region->pieces[i];
+			if (piece == hive->selectedPiece)
+				break;
+		}
+		next = NULL;
+		for (i++; i < region->numPieces; i++) {
+			HivePiece *const piece = region->pieces[i];
+			if (piece->side == hive->turn) {
+				next = piece;
+				break;
+			}
+		}
+		while (next == NULL) {
+			if (region != &hive->board)
+				region = &hive->board;
+			else
+				region = hive->turn == HIVE_WHITE ?
+					&hive->whiteInventory :
+					&hive->blackInventory;
+			for (i = 0; i < region->numPieces; i++) {
+				HivePiece *const piece = region->pieces[i];
+				if (piece->side == hive->turn) {
+					next = piece;
+					break;
+				}
+			}
+		}
+		hive_selectpiece(hive, region, next);
 		break;
 	}
 	return 0;
@@ -737,9 +874,15 @@ void hive_render(Hive *hive)
 
 	for (size_t i = 0; i < ARRLEN(hive->regions); i++)
 		hive_region_render(&hive->regions[i]);
-	if (hive->selectedPiece == NULL ||
-			hive->selectedRegion != &hive->board)
+	if (hive->selectedPiece == NULL)
 		return;
+	if (hive->isLocked)
+		hive_region_renderhexat(&hive->board, COLOR_MAGENTA,
+				hive->hexCursor);
+	if (hive->selectedRegion != &hive->board) {
+		wnoutrefresh(hive->board.win);
+		return;
+	}
 	/* render the piece stack */
 	getmaxyx(hive->board.win, p.y, p.x);
 	p.y = 0;

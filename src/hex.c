@@ -5,8 +5,8 @@ void curses_init(void)
 	setlocale(LC_ALL, "");
 
 	initscr();
-	keypad(stdscr, true);
 	cbreak();
+	keypad(stdscr, true);
 	noecho();
 	mousemask(ALL_MOUSE_EVENTS, NULL);
 	mouseinterval(0);
@@ -21,6 +21,9 @@ void curses_init(void)
 	init_pair(PAIR_INFO, COLOR_MAGENTA, COLOR_BLACK);
 	init_pair(PAIR_COMMAND, COLOR_BLUE, COLOR_BLACK);
 	init_pair(PAIR_ARGUMENT, COLOR_GREEN, COLOR_BLACK);
+
+	init_pair(PAIR_STATUS_NORMAL, COLOR_WHITE, 18);
+	init_pair(PAIR_STATUS_INFO, 5, 18);
 
 	refresh();
 }
