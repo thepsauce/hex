@@ -67,6 +67,11 @@ int hive_region_init(HiveRegion *region, int x, int y, int w, int h);
 int hive_region_addpiece(HiveRegion *region, HivePiece *piece);
 int hive_region_removepiece(HiveRegion *region, HivePiece *piece);
 
+HivePiece *hive_region_getmostupperleft(HiveRegion *region,
+		enum hive_side side);
+HivePiece *hive_region_getmostlowerright(HiveRegion *region,
+		enum hive_side side);
+
 /* the little 'r' stands for "reverse" */
 HivePiece *hive_region_pieceat(HiveRegion *region, HivePiece *from, Point at);
 HivePiece *hive_region_pieceatr(HiveRegion *region, HivePiece *from, Point at);
@@ -127,9 +132,15 @@ typedef struct hive {
 	PointList moves;
 	PointList choices;
 	HiveMoveList history;
-	bool isLocked;
+	/* cursor for keyboard only controls */
 	Point hexCursor;
 } Hive;
+
+#define hive_getinventory(hive) ({ \
+	Hive *const _h = (hive); \
+	_h->turn == HIVE_WHITE ? &hive->whiteInventory : \
+		&hive->blackInventory; \
+})
 
 int hive_init(Hive *hive, int x, int y, int w, int h);
 void hive_reset(Hive *hive);

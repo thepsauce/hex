@@ -605,11 +605,8 @@ static void hive_domove2(Hive *hive, const HiveMove *move, bool doNotify)
 
 void hive_domove(Hive *hive, const HiveMove *move, bool doNotify)
 {
-	if (move->fromInventory)
-		hive->selectedRegion = hive->turn == HIVE_WHITE ?
-			&hive->whiteInventory : &hive->blackInventory;
-	else
-		hive->selectedRegion = &hive->board;
+	hive->selectedRegion = move->fromInventory ? hive_getinventory(hive) :
+		&hive->board;
 	hive->selectedPiece = hive_region_pieceatr(hive->selectedRegion,
 			NULL, move->from);
 	hive_domove2(hive, move, doNotify);
@@ -622,8 +619,7 @@ static bool hive_transferpiece(Hive *hive, HiveRegion *region, Point pos)
 
 	if (hive->selectedPiece == NULL || region != &hive->board)
 		return false;
-	inventory = hive->turn == HIVE_WHITE ? &hive->whiteInventory :
-		&hive->blackInventory;
+	inventory = hive_getinventory(hive);
 	move.fromInventory = hive->selectedRegion == inventory;
 	move.from = hive->selectedPiece->position;
 	move.to = pos;
@@ -752,41 +748,74 @@ bool hive_handlemousepress(Hive *hive, int button, Point mouse)
 	return true;
 }
 
+static void hive_selectmostupperleft(Hive *hive, HiveRegion *region)
+{
+	HivePiece *piece;
+
+	for (int i = 0; i < 2; i++) {
+		piece = hive_region_getmostupperleft(region, hive->turn);
+		if (piece != NULL) {
+			hive_selectpiece(hive, region, piece);
+			break;
+		}
+		region = region == &hive->board ? hive_getinventory(hive) :
+			&hive->board;
+	}
+}
+
+static void hive_selectmostlowerright(Hive *hive, HiveRegion *region)
+{
+	HivePiece *piece;
+
+	for (int i = 0; i < 2; i++) {
+		piece = hive_region_getmostlowerright(region, hive->turn);
+		if (piece != NULL) {
+			hive_selectpiece(hive, region, piece);
+			break;
+		}
+		region = region == &hive->board ? hive_getinventory(hive) :
+			&hive->board;
+	}
+}
+
 int hive_handle(Hive *hive, int c)
 {
 	HiveRegion *region;
+	HivePiece *next;
 
 	if (hive->selectedRegion == NULL)
 		hive->selectedRegion = &hive->board;
 	region = hive->selectedRegion;
 	switch (c) {
-		size_t i;
-		HivePiece *next;
-
 	case '0':
-		region->translation.x = 0;
-		region->translation.y = 0;
+		if (hive->selectedPiece != NULL) {
+			hive->hexCursor.x = 0;
+			hive->hexCursor.y = 0;
+		} else {
+			region->translation.x = 0;
+			region->translation.y = 0;
+		}
 		break;
 	case KEY_LEFT:
-		if (hive->isLocked)
+		if (hive->selectedPiece != NULL)
 			hive->hexCursor.x--;
 		else
 			region->translation.x--;
 		break;
 	case KEY_RIGHT:
-		if (hive->isLocked)
+		if (hive->selectedPiece != NULL)
 			hive->hexCursor.x++;
 		else
 			region->translation.x++;
 		break;
 	case KEY_UP:
-		if (hive->isLocked)
+		if (hive->selectedPiece != NULL)
 			hive->hexCursor.y--;
 		else
 			region->translation.y--;
 		break;
 	case KEY_DOWN:
-		if (hive->isLocked)
+		if (hive->selectedPiece != NULL)
 			hive->hexCursor.y++;
 		else
 			region->translation.y++;
@@ -794,74 +823,122 @@ int hive_handle(Hive *hive, int c)
 
 	case '\n':
 	case '\r':
-		if (hive->isLocked)
+		if (hive->selectedPiece != NULL)
 			hive_pressposition(hive, &hive->board, hive->hexCursor);
-		hive->isLocked = !hive->isLocked;
 		break;
 
 	case 0x7f:
 	case KEY_BACKSPACE:
-		for (i = region->numPieces; i > 0; ) {
-			HivePiece *const piece = region->pieces[--i];
-			if (piece == hive->selectedPiece)
-				break;
+		if (hive->selectedPiece == NULL) {
+			hive_selectmostlowerright(hive, &hive->board);
+			break;
 		}
+		/* get piece above/left of this piece */
 		next = NULL;
-		for (; i > 0; ) {
-			HivePiece *const piece = region->pieces[--i];
-			if (piece->side == hive->turn) {
-				next = piece;
-				break;
-			}
+		for (size_t i = 0; i < region->numPieces; i++) {
+			HivePiece *const piece = region->pieces[i];
+			if (piece == hive->selectedPiece)
+				continue;
+			if (hive_region_getabove(region, piece) != NULL)
+				continue;
+			if (piece->side != hive->selectedPiece->side)
+				continue;
+			const Point pos = piece->position;
+			const Point orig = hive->selectedPiece->position;
+			if (pos.x != orig.x || pos.y >= orig.y)
+				continue;
+			if (next != NULL && pos.y > next->position.y)
+				continue;
+			next = piece;
 		}
-		while (next == NULL) {
-			if (region != &hive->board)
-				region = &hive->board;
-			else
-				region = hive->turn == HIVE_WHITE ?
-					&hive->whiteInventory :
-					&hive->blackInventory;
-			for (i = region->numPieces; i > 0; ) {
-				HivePiece *const piece = region->pieces[--i];
-				if (piece->side == hive->turn) {
-					next = piece;
-					break;
-				}
-			}
+		if (next != NULL) {
+			hive_selectpiece(hive, region, next);
+			break;
 		}
-		hive_selectpiece(hive, region, next);
-		break;
 
-	case ' ':
-		for (i = 0; i < region->numPieces; i++) {
+		for (size_t i = 0; i < region->numPieces; i++) {
 			HivePiece *const piece = region->pieces[i];
 			if (piece == hive->selectedPiece)
-				break;
+				continue;
+			if (hive_region_getabove(region, piece) != NULL)
+				continue;
+			if (piece->side != hive->selectedPiece->side)
+				continue;
+			const Point pos = piece->position;
+			const Point orig = hive->selectedPiece->position;
+			if (pos.x >= orig.x)
+				continue;
+			if (next != NULL) {
+				if (pos.x < next->position.x)
+					continue;
+				if (pos.x == next->position.x &&
+						pos.y < next->position.y)
+					continue;
+			}
+			next = piece;
 		}
+		if (next != NULL) {
+			hive_selectpiece(hive, region, next);
+			break;
+		}
+		hive_selectmostlowerright(hive, region == &hive->board ?
+				hive_getinventory(hive) : &hive->board);
+		break;
+	case ' ':
+		if (hive->selectedPiece == NULL) {
+			hive_selectmostupperleft(hive, &hive->board);
+			break;
+		}
+		/* get piece below/right of this piece */
 		next = NULL;
-		for (i++; i < region->numPieces; i++) {
+		for (size_t i = 0; i < region->numPieces; i++) {
 			HivePiece *const piece = region->pieces[i];
-			if (piece->side == hive->turn) {
-				next = piece;
-				break;
-			}
+			if (piece == hive->selectedPiece)
+				continue;
+			if (hive_region_getabove(region, piece) != NULL)
+				continue;
+			if (piece->side != hive->selectedPiece->side)
+				continue;
+			const Point pos = piece->position;
+			const Point orig = hive->selectedPiece->position;
+			if (pos.x != orig.x || pos.y <= orig.y)
+				continue;
+			if (next != NULL && pos.y < next->position.y)
+				continue;
+			next = piece;
 		}
-		while (next == NULL) {
-			if (region != &hive->board)
-				region = &hive->board;
-			else
-				region = hive->turn == HIVE_WHITE ?
-					&hive->whiteInventory :
-					&hive->blackInventory;
-			for (i = 0; i < region->numPieces; i++) {
-				HivePiece *const piece = region->pieces[i];
-				if (piece->side == hive->turn) {
-					next = piece;
-					break;
-				}
-			}
+		if (next != NULL) {
+			hive_selectpiece(hive, region, next);
+			break;
 		}
-		hive_selectpiece(hive, region, next);
+
+		for (size_t i = 0; i < region->numPieces; i++) {
+			HivePiece *const piece = region->pieces[i];
+			if (piece == hive->selectedPiece)
+				continue;
+			if (hive_region_getabove(region, piece) != NULL)
+				continue;
+			if (piece->side != hive->selectedPiece->side)
+				continue;
+			const Point pos = piece->position;
+			const Point orig = hive->selectedPiece->position;
+			if (pos.x <= orig.x)
+				continue;
+			if (next != NULL) {
+				if (pos.x > next->position.x)
+					continue;
+				if (pos.x == next->position.x &&
+						pos.y > next->position.y)
+					continue;
+			}
+			next = piece;
+		}
+		if (next != NULL) {
+			hive_selectpiece(hive, region, next);
+			break;
+		}
+		hive_selectmostupperleft(hive, region == &hive->board ?
+				hive_getinventory(hive) : &hive->board);
 		break;
 	}
 	return 0;
@@ -876,9 +953,7 @@ void hive_render(Hive *hive)
 		hive_region_render(&hive->regions[i]);
 	if (hive->selectedPiece == NULL)
 		return;
-	if (hive->isLocked)
-		hive_region_renderhexat(&hive->board, COLOR_MAGENTA,
-				hive->hexCursor);
+	hive_region_renderhexat(&hive->board, COLOR_MAGENTA, hive->hexCursor);
 	if (hive->selectedRegion != &hive->board) {
 		wnoutrefresh(hive->board.win);
 		return;

@@ -7,7 +7,6 @@ int main(int argc, char *argv[])
 	Hive *const hive = &hive_chat.hive;
 	NetChat *const chat = &hive_chat.chat;
 	bool inChat = true;
-	bool prefixed = false;
 
 	(void) argc;
 	(void) argv;
@@ -17,6 +16,7 @@ int main(int argc, char *argv[])
 	while (1) {
 		MEVENT ev;
 
+		curs_set(0);
 		net_chat_render(chat);
 		hive_render(hive);
 		hc_renderstatus(&hive_chat);
@@ -33,17 +33,17 @@ int main(int argc, char *argv[])
 			getyx(chat->win, y, x);
 			move(y + yBeg, x + xBeg);
 		}
+		curs_set(inChat);
 		const int c = getch();
 		switch (c) {
 		case 'W' - 'A' + 1:
-			prefixed = true;
+			inChat = !inChat;
 			break;
 		case KEY_MOUSE:
 			getmouse(&ev);
 			if (ev.bstate & BUTTON1_PRESSED) {
 				inChat = net_chat_handlemousepress(chat,
 						(Point) { ev.x, ev.y });
-				curs_set(inChat);
 				hive_handlemousepress(hive, 0,
 						(Point) { ev.x, ev.y });
 			} else if (ev.bstate & BUTTON2_PRESSED) {
@@ -51,23 +51,11 @@ int main(int argc, char *argv[])
 						(Point) { ev.x, ev.y });
 			}
 			break;
-		default: {
-			const bool p = prefixed;
-			prefixed = false;
-			if (p) {
-				switch (c) {
-				case 'w': case 'W':
-					inChat = !inChat;
-					curs_set(inChat);
-					break;
-				}
-				break;
-			}
+		default:
 			if (inChat)
 				net_chat_handle(chat, c);
 			else
 				hive_handle(hive, c);
-		}
 		}
 	}
 
