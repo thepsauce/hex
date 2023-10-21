@@ -77,7 +77,7 @@ static int hc_deserializemove(const char *data, HiveMove *move)
 	return 0;
 }
 
-void hc_notifygame(void *ptr)
+void hc_notifygamestart(void *ptr)
 {
 	HiveChat *const hc = &hive_chat;
 	hive_reset(&hc->hive);
@@ -106,5 +106,7 @@ int hc_domove(void *ptr, const char *data)
 	if (hc_deserializemove(data, &move) < 0)
 		return -1;
 	hive_domove(&hc->hive, &move, false);
+	if (hive_isqueensurrounded(&hc->hive))
+
 	return 0;
 }

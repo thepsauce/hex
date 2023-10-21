@@ -34,54 +34,6 @@ int hive_region_removepiece(HiveRegion *region, HivePiece *piece)
 	return -1;
 }
 
-HivePiece *hive_region_getmostupperleft(HiveRegion *region,
-	       enum hive_side side)
-{
-	HivePiece *most;
-
-	if (region->numPieces == 0)
-		return NULL;
-	most = region->pieces[0];
-	for (size_t i = 1; i < region->numPieces; i++) {
-		HivePiece *const piece = region->pieces[i];
-		if (piece->side != side)
-			continue;
-		if (hive_region_getabove(region, piece) != NULL)
-			continue;
-		const Point pos = piece->position;
-		if (pos.x > most->position.x)
-			continue;
-		if (pos.x == most->position.x && pos.y >= most->position.y)
-			continue;
-		most = piece;
-	}
-	return most->side == side ? most : NULL;
-}
-
-HivePiece *hive_region_getmostlowerright(HiveRegion *region,
-		enum hive_side side)
-{
-	HivePiece *most;
-
-	if (region->numPieces == 0)
-		return NULL;
-	most = region->pieces[0];
-	for (size_t i = 1; i < region->numPieces; i++) {
-		HivePiece *const piece = region->pieces[i];
-		if (piece->side != side)
-			continue;
-		if (hive_region_getabove(region, piece) != NULL)
-			continue;
-		const Point pos = piece->position;
-		if (pos.x < most->position.x)
-			continue;
-		if (pos.x == most->position.x && pos.y < most->position.y)
-			continue;
-		most = piece;
-	}
-	return most->side == side ? most : NULL;
-}
-
 void hive_region_clearflags(HiveRegion *region, uint64_t flags)
 {
 	for (size_t i = 0; i < region->numPieces; i++)
