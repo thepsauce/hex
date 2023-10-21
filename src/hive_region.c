@@ -217,7 +217,7 @@ void hive_region_renderpiece(HiveRegion *region, HivePiece *piece)
 {
 	Point world;
 	HivePiece *pieces[6];
-	short fg;
+	short fg, bg;
 
 	world = piece->position;
 	hive_pointtoworld(&world, region->translation);
@@ -225,7 +225,8 @@ void hive_region_renderpiece(HiveRegion *region, HivePiece *piece)
 	fg = (piece->flags & HIVE_SELECTED) ? COLOR_YELLOW :
 		(piece->flags & HIVE_ISACTOR) ? COLOR_GREEN :
 		piece->side == HIVE_WHITE ?  COLOR_BLUE : COLOR_RED;
-	wattr_set(region->win, 0, COLOR(COLOR_BLACK, fg), NULL);
+	bg = (piece->flags & HIVE_IMMOBILE) ? COLOR_MAGENTA : COLOR_BLACK;
+	wattr_set(region->win, 0, COLOR(bg, fg), NULL);
 	mvwprintw(region->win, world.y, world.x + 1, " %s ",
 			piece_names[(int) piece->type]);
 	const size_t cnt = hive_region_countat(region, piece->position);
@@ -236,7 +237,6 @@ void hive_region_renderpiece(HiveRegion *region, HivePiece *piece)
 
 	hive_region_getsurroundingr(region, piece->position, pieces);
 	for (int n = 0; n < 4; n++) {
-		short bg;
 		HivePiece *neighbor;
 
 		neighbor = n == 0 ? pieces[HIVE_NORTH_EAST] :

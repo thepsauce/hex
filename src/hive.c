@@ -356,7 +356,7 @@ static void hive_findmovesladybug(Hive *hive, struct hive_ladybug_keeper *lk)
 	HivePiece *pieces[6];
 	HivePiece *piece;
 
-	hive_region_getsurrounding(&hive->board, lk->piece->position, pieces);
+	hive_region_getsurroundingr(&hive->board, lk->piece->position, pieces);
 	for (int d = 0; d < 6; d++) {
 		pos = lk->piece->position;
 		hive_movepoint(&pos, d);
@@ -412,7 +412,7 @@ static void hive_computemovesmosquito(Hive *hive)
 		hive_computemovesbeetle(hive);
 		return;
 	}
-	hive_region_getsurrounding(&hive->board, hive->selectedPiece->position,
+	hive_region_getsurroundingr(&hive->board, hive->selectedPiece->position,
 			pieces);
 	for (int d = 0; d < 6; d++) {
 		HivePiece *const piece = pieces[d];
@@ -426,23 +426,19 @@ static void hive_computemovespillbug(Hive *hive)
 {
 	HivePiece *pieces[6];
 
-	const Point last = hive->history.count == 0 ?
-		(Point) { INT_MIN, INT_MIN } :
-		hive->history.moves[hive->history.count - 1].to;
+	/* get the normal moves */
 	hive_moveexhaustive(hive, hive->selectedPiece, false, false, 1);
-	/* can't carry a piece if the pillbug was recently moved */
-	if (point_isequal(last, hive->selectedPiece->position))
-		return;
-	hive_region_getsurrounding(&hive->board, hive->selectedPiece->position,
+	hive_region_getsurroundingr(&hive->board, hive->selectedPiece->position,
 			pieces);
 	for (int d = 0; d < 6; d++) {
 		HivePiece *const piece = pieces[d];
 		if (piece == NULL)
 			continue;
-		/* can't carry a recently moved piece */
-		if (point_isequal(last, piece->position))
-			return;
-		if (hive_region_getbelow(&hive->board, piece) == NULL ||
+		/* can't carry an immobile moved piece */
+		if (piece->flags & HIVE_IMMOBILE)
+			continue;
+		/* can only carry pieces not in a stack */
+		if (hive_region_getbelow(&hive->board, piece) != NULL ||
 				!hive_canmoveontop(hive,
 					hive->selectedPiece->position,
 					hive_oppositedirection(d)))
@@ -456,16 +452,29 @@ static void hive_computemovespillbug_carrying(Hive *hive)
 	HivePiece *pieces[6];
 	Point pos;
 
-	hive_region_getsurrounding(&hive->board, hive->selectedPiece->position,
-			pieces);
+	/* we assume that the piece has move on top of the pillbug */
+	/* we can't just set the position if stacks are involved */
+	const Point orig = hive->selectedPiece->position;
+	hive_region_removepiece(&hive->board, hive->selectedPiece);
+	hive->selectedPiece->position = hive->actor->position;
+	hive_region_addpiece(&hive->board, hive->selectedPiece);
+
+	hive_region_getsurrounding(&hive->board, hive->actor->position, pieces);
 	for (int d = 0; d < 6; d++) {
 		HivePiece *const piece = pieces[d];
 		if (piece != NULL)
 			continue;
 		pos = hive->actor->position;
 		hive_movepoint(&pos, d);
+		if (point_isequal(pos, orig))
+			continue;
+		if (!hive_canmoveontop(hive, pos, d))
+			continue;
 		point_list_push(&hive->moves, pos);
 	}
+	hive_region_removepiece(&hive->board, hive->selectedPiece);
+	hive->selectedPiece->position = orig;
+	hive_region_addpiece(&hive->board, hive->selectedPiece);
 }
 
 static void hive_computemovesqueen(Hive *hive)
@@ -557,7 +566,7 @@ void hive_computemoves(Hive *hive, enum hive_type type)
 		hive->moves.count = 0;
 }
 
-static bool hive_canplace(Hive *hive, HivePiece *piece, Point pos)
+static bool hive_canplace(Hive *hive, Point pos)
 {
 	HivePiece *pieces[6];
 	bool affirm;
@@ -595,7 +604,7 @@ static void hive_computeplaces(Hive *hive)
 		for (int d = 0; d < 6; d++) {
 			pos = piece->position;
 			hive_movepoint(&pos, d);
-			if (!hive_canplace(hive, piece, pos))
+			if (!hive_canplace(hive, pos))
 				continue;
 			point_list_push(&hive->moves, pos);
 		}
@@ -659,6 +668,11 @@ static void hive_selectpiece(Hive *hive, HiveRegion *region, HivePiece *piece)
 	hive->selectedRegion = region;
 	hive->selectedPiece = piece;
 	piece->flags |= HIVE_SELECTED;
+	if (piece->flags & HIVE_IMMOBILE) {
+		point_list_clear(&hive->moves);
+		point_list_clear(&hive->choices);
+		return;
+	}
 	if (region == &hive->board) {
 		hive_computemoves(hive, piece->type);
 	} else {
@@ -700,9 +714,16 @@ void hive_domove(Hive *hive, const HiveMove *move, bool doNotify)
 			hive->selectedPiece);
 	hive->selectedPiece->position = move->to;
 	hive_region_addpiece(&hive->board, hive->selectedPiece);
+	hive->turn = hive->turn == HIVE_WHITE ? HIVE_BLACK : HIVE_WHITE;
+	for (size_t i = 0; i < hive->board.numPieces; i++) {
+		HivePiece *const piece = hive->board.pieces[i];
+		piece->flags &= ~HIVE_IMMOBILE;
+	}
+	/* this happenps when a beetle just moved a piece */
+	if (hive->actor != NULL)
+		hive->selectedPiece->flags |= HIVE_IMMOBILE;
 	hive_selectpiece(hive, NULL, NULL);
 	hive_move_list_push(&hive->history, move);
-	hive->turn = hive->turn == HIVE_WHITE ? HIVE_BLACK : HIVE_WHITE;
 	if (!hive_hasanymoves(hive))
 		hive->turn = hive->turn == HIVE_WHITE ? HIVE_BLACK : HIVE_WHITE;
 	if (doNotify)

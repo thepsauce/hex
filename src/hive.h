@@ -21,6 +21,7 @@ enum hive_type {
 #define HIVE_VISITED (1 << 0)
 #define HIVE_SELECTED (1 << 1)
 #define HIVE_ISACTOR (1 << 2)
+#define HIVE_IMMOBILE (1 << 3)
 
 #define HIVE_PIECE_COUNT 28
 
