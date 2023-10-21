@@ -33,6 +33,7 @@ typedef enum net_request_type {
 
 	NET_REQUEST_HIVE_CHALLENGE, /* (nothing) */
 	NET_REQUEST_HIVE_MOVE, /* [move] */
+	NET_REQUEST_HIVE_RESET,
 } net_request_type_t;
 
 typedef struct net_request {
@@ -120,6 +121,7 @@ typedef struct net_chat {
 } NetChat;
 
 int net_chat_init(NetChat *chat, int x, int y, int w, int h, int outArea);
+int net_chat_setposition(NetChat *chat, int x, int y, int w, int h);
 bool net_chat_handlemousepress(NetChat *chat, Point mouse);
 int net_chat_handle(NetChat *chat, int c);
 void net_chat_render(NetChat *chat);

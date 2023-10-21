@@ -25,17 +25,55 @@ int net_chat_init(NetChat *chat, int x, int y, int w, int h, int outArea)
 	waddstr(win, "Welcome to hex, a simple chatting network that can also"
 			"be used to play the board game Hive!\n");
 	waddstr(win,
-		"  ___     ___  \n"
-		" /   \\   /   \\ \n"
-		" \\___/   \\___/ \n"
-		" /   \\___/   \\ \n"
-		" \\___/   \\___/ \n"
-		" /   \\___/   \\ \n"
-		" \\___/   \\___/ \n"
-		" /   \\   /   \\ \n"
-		" \\___/   \\___/ \n\n");
+		"  ___     ___    ___ ___    ___     ___   \n"
+		" /   \\   /   \\  /   \\   \\  /   \\___/   \\ \n"
+		" \\___/   \\___/  \\___/___/  \\___/   \\___/  \n"
+		" /   \\___/   \\  /   \\___       \\___/      \n"
+		" \\___/   \\___/  \\___/   \\      /   \\     \n"
+		" /   \\___/   \\  /   \\___/      \\___/      \n"
+		" \\___/   \\___/  \\___/___    ___/   \\___  \n"
+		" /   \\   /   \\  /   \\   \\  /   \\___/   \\ \n"
+		" \\___/   \\___/  \\___/___/  \\___/   \\___/  \n\n");
 	waddstr(win, "You can either ignore this and play offline or host/join a server\n");
 	waddstr(win, "Type '/help' for help\nGL&HF!\n\n");
+	return 0;
+}
+
+int net_chat_setposition(NetChat *chat, int x, int y, int w, int h)
+{
+	int xOld, yOld, wOld, hOld;
+
+	getbegyx(chat->win, yOld, xOld);
+	getmaxyx(chat->win, hOld, wOld);
+	hOld -= xOld - 1;
+	wOld -= yOld - 1;
+	if(w != wOld || h != hOld) {
+		WINDOW *next, *old;
+		int xMax, yMax;
+
+		old = chat->win;
+		if ((next = newwin(h, w, y, x)) == NULL)
+			return -1;
+		chat->win = next;
+		delwin(old);
+
+		old = chat->output.win;
+		if ((next = newpad(chat->output.area / w + 1, w)) == NULL)
+			return -1;
+		scrollok(next, true);
+
+		pthread_mutex_lock(&chat->output.lock);
+		getmaxyx(old, yMax, xMax);
+		for (int y = 0; y < yMax; y++)
+			for (int x = 0; x < xMax; x++)
+				waddch(next, mvwinch(old, y, x));
+		chat->output.win = next;
+		pthread_mutex_unlock(&chat->output.lock);
+
+		delwin(old);
+	} else if(x == xOld && y == yOld) {
+		return 1;
+	}
 	return 0;
 }
 
@@ -92,45 +130,6 @@ void net_chat_render(NetChat *chat)
 			chat->input.length - chat->input.index);
 	wmove(win, y, x);
 	wnoutrefresh(win);
-}
-
-int net_chat_setposition(NetChat *chat, int x, int y, int w, int h)
-{
-	int xOld, yOld, wOld, hOld;
-
-	getbegyx(chat->win, yOld, xOld);
-	getmaxyx(chat->win, hOld, wOld);
-	hOld -= xOld - 1;
-	wOld -= yOld - 1;
-	if(w != wOld || h != hOld) {
-		WINDOW *next, *old;
-		int xMax, yMax;
-
-		old = chat->win;
-		if ((next = newwin(h, w, y, x)) == NULL)
-			return -1;
-		scrollok(next, true);
-		chat->win = next;
-		delwin(old);
-
-		old = chat->output.win;
-		if ((next = newpad(chat->output.area / w + 1, w)) == NULL)
-			return -1;
-		scrollok(next, true);
-
-		pthread_mutex_lock(&chat->output.lock);
-		getmaxyx(old, yMax, xMax);
-		for (int y = 0; y < yMax; y++)
-			for (int x = 0; x < xMax; x++)
-				waddch(next, mvwinch(old, y, x));
-		pthread_mutex_unlock(&chat->output.lock);
-
-		chat->win = next;
-		delwin(old);
-	} else if(x == xOld && y == yOld) {
-		return 1;
-	}
-	return 0;
 }
 
 bool net_chat_handlemousepress(NetChat *chat, Point mouse)

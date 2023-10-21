@@ -203,6 +203,8 @@ static void *net_chat_host(void *arg)
 			wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
 			wprintw(chat->output.win, "User 'Anon' has joined!\n");
 			pthread_mutex_unlock(&chat->output.lock);
+			/* send all moves to anon */
+			hc_sendmoves(chat, ent->socket);
 			break;
 		case NET_REQUEST_LVE:
 			pthread_mutex_lock(&chat->output.lock);
@@ -258,6 +260,8 @@ static void *net_chat_host(void *arg)
 					"Type '/challenge' to accept!\n",
 					ent->name);
 			} else if (chat->players[1].socket == 0) {
+				net_receiver_sendany(&chat->net, 0,
+						NET_REQUEST_HIVE_RESET);
 				chat->players[1].socket = ent->socket;
 				strcpy(chat->players[1].name, ent->name);
 				net_receiver_sendformatted(&chat->net, 0,
@@ -272,9 +276,17 @@ static void *net_chat_host(void *arg)
 			}
 			break;
 		case NET_REQUEST_HIVE_MOVE:
-			if (ent->socket == chat->players[0].socket ||
-					ent->socket == chat->players[1].socket)
+			if (ent->socket == chat->players[0].socket) {
 				hc_domove(chat, req.extra);
+				net_receiver_sendany(&chat->net, 0,
+						NET_REQUEST_HIVE_MOVE,
+						req.extra);
+			} else if (ent->socket == chat->players[1].socket) {
+				hc_domove(chat, req.extra);
+				net_receiver_sendany(&chat->net, 0,
+						NET_REQUEST_HIVE_MOVE,
+						req.extra);
+			}
 			break;
 		default:
 			break;
@@ -368,6 +380,9 @@ static void *net_chat_join(void *arg)
 			break;
 		case NET_REQUEST_HIVE_MOVE:
 			hc_domove(chat, req.extra);
+			break;
+		case NET_REQUEST_HIVE_RESET:
+			hc_notifygamestart(chat);
 			break;
 		default:
 			/* just ignore the request */

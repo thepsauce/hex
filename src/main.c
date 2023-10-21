@@ -39,6 +39,9 @@ int main(int argc, char *argv[])
 		case 'W' - 'A' + 1:
 			inChat = !inChat;
 			break;
+		case KEY_RESIZE:
+			hc_setposition(&hive_chat, 0, 0, COLS, LINES);
+			break;
 		case KEY_MOUSE:
 			getmouse(&ev);
 			if (ev.bstate & BUTTON1_PRESSED) {

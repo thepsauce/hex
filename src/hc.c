@@ -16,6 +16,12 @@ void hc_init(HiveChat *hc)
 	}
 }
 
+void hc_setposition(HiveChat *hc, int x, int y, int w, int h)
+{
+	hive_setposition(&hc->hive, x, y, w / 2 - 1, h - 1);
+	net_chat_setposition(&hc->chat, x + w / 2, y, w - w / 2, h - 1);
+}
+
 void hc_renderstatus(HiveChat *hc)
 {
 	WINDOW *const win = hc->status;
@@ -31,6 +37,13 @@ void hc_renderstatus(HiveChat *hc)
 				"Username: '%s'", chat->name);
 	wclrtoeol(win);
 	wnoutrefresh(win);
+}
+
+bool hc_hasconnection(void *ptr)
+{
+	(void) ptr;
+	HiveChat *const hc = &hive_chat;
+	return hc->chat.net.socket > 0;
 }
 
 static char *hc_serializemove(const HiveMove *move)
@@ -79,9 +92,9 @@ static int hc_deserializemove(const char *data, HiveMove *move)
 
 void hc_notifygamestart(void *ptr)
 {
+	(void) ptr;
 	HiveChat *const hc = &hive_chat;
 	hive_reset(&hc->hive);
-	hc->inSync = true;
 }
 
 int hc_notifymove(void *ptr, const HiveMove *move)
@@ -90,11 +103,34 @@ int hc_notifymove(void *ptr, const HiveMove *move)
 
 	(void) ptr;
 	HiveChat *const hc = &hive_chat;
-	if (!hc->inSync)
-		return -1;
 	data = hc_serializemove(move);
 	net_receiver_sendany(&hc->chat.net, 0, NET_REQUEST_HIVE_MOVE, data);
+	if (hc->chat.net.isServer)
+		hive_domove(&hc->hive, move, false);
 	return 0;
+}
+
+int hc_sendmoves(void *ptr, int socket)
+{
+	char *data;
+
+	(void) ptr;
+	HiveChat *const hc = &hive_chat;
+	Hive *const hive = &hc->hive;
+	for (size_t i = 0; i < hive->history.count; i++) {
+		data = hc_serializemove(&hive->history.moves[i]);
+		net_receiver_sendany(&hc->chat.net, socket,
+				NET_REQUEST_HIVE_MOVE, data);
+	}
+	return 0;
+}
+
+bool hc_isplayer(void *ptr, int player)
+{
+	(void) ptr;
+	HiveChat *const hc = &hive_chat;
+	return (player == 0 && hc->hive.turn == HIVE_WHITE) ||
+		(player == 1 && hc->hive.turn == HIVE_BLACK);
 }
 
 int hc_domove(void *ptr, const char *data)
@@ -103,10 +139,18 @@ int hc_domove(void *ptr, const char *data)
 
 	(void) ptr;
 	HiveChat *const hc = &hive_chat;
+	NetChat *const chat = &hc->chat;
 	if (hc_deserializemove(data, &move) < 0)
 		return -1;
 	hive_domove(&hc->hive, &move, false);
-	if (hive_isqueensurrounded(&hc->hive))
-
+	if (hive_isqueensurrounded(&hc->hive)) {
+		pthread_mutex_lock(&chat->output.lock);
+		wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
+		waddstr(chat->output.win,
+				hc->hive.turn == HIVE_WHITE ?
+					"Server> White wins!\n" :
+					"Server> Black wins!\n");
+		pthread_mutex_unlock(&chat->output.lock);
+	}
 	return 0;
 }

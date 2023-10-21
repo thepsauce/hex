@@ -109,14 +109,12 @@ int hive_init(Hive *hive, int x, int y, int w, int h)
 	memcpy(hive->allPieces,
 			default_white_pieces, sizeof(default_white_pieces));
 
-	hive_region_init(&hive->blackInventory,
-			x, y + h - h / 5, w, h / 5);
+	hive_region_init(&hive->blackInventory, x, y + h - h / 5, w, h / 5);
 	for (size_t i = 0; i < ARRLEN(default_black_pieces); i++)
 		hive_region_addpiece(&hive->blackInventory,
 			&hive->allPieces[ARRLEN(default_black_pieces) + i]);
 
-	hive_region_init(&hive->whiteInventory,
-			x, y, w, h / 5);
+	hive_region_init(&hive->whiteInventory, x, y, w, h / 5);
 	for (size_t i = 0; i < ARRLEN(default_white_pieces); i++)
 		hive_region_addpiece(&hive->whiteInventory,
 				&hive->allPieces[i]);
@@ -126,6 +124,21 @@ int hive_init(Hive *hive, int x, int y, int w, int h)
 	hive_pointtogrid(&cur, hive->board.translation);
 	hive->hexCursor = cur;
 	return 0;
+}
+
+void hive_setposition(Hive *hive, int x, int y, int w, int h)
+{
+	Point cur;
+
+	delwin(hive->blackInventory.win);
+	delwin(hive->board.win);
+	delwin(hive->whiteInventory.win);
+	hive->blackInventory.win = newwin(h / 5, w, y + h - h / 5, x);
+	hive->whiteInventory.win = newwin(h / 5, w, y, x);
+	hive->board.win = newwin(h - 2 * (h / 5), w, y + h / 5, x);
+	cur = (Point) { w / 2, h / 4 };
+	hive_pointtogrid(&cur, hive->board.translation);
+	hive->hexCursor = cur;
 }
 
 void hive_reset(Hive *hive)
@@ -706,28 +719,31 @@ static void hive_selectpiece(Hive *hive, HiveRegion *region, HivePiece *piece)
 
 void hive_domove(Hive *hive, const HiveMove *move, bool doNotify)
 {
-	hive->selectedRegion = move->fromInventory ? hive_getinventory(hive) :
-		&hive->board;
-	hive->selectedPiece = hive_region_pieceatr(hive->selectedRegion,
-			NULL, move->from);
-	hive_region_removepiece(hive->selectedRegion,
-			hive->selectedPiece);
-	hive->selectedPiece->position = move->to;
-	hive_region_addpiece(&hive->board, hive->selectedPiece);
-	hive->turn = hive->turn == HIVE_WHITE ? HIVE_BLACK : HIVE_WHITE;
-	for (size_t i = 0; i < hive->board.numPieces; i++) {
-		HivePiece *const piece = hive->board.pieces[i];
-		piece->flags &= ~HIVE_IMMOBILE;
-	}
-	/* this happenps when a beetle just moved a piece */
-	if (hive->actor != NULL)
-		hive->selectedPiece->flags |= HIVE_IMMOBILE;
-	hive_selectpiece(hive, NULL, NULL);
-	hive_move_list_push(&hive->history, move);
-	if (!hive_hasanymoves(hive))
-		hive->turn = hive->turn == HIVE_WHITE ? HIVE_BLACK : HIVE_WHITE;
-	if (doNotify)
+	if (doNotify && hc_hasconnection(hive)) {
 		hc_notifymove(hive, move);
+	} else {
+		hive->selectedRegion = move->fromInventory ?
+			hive_getinventory(hive) : &hive->board;
+		hive->selectedPiece = hive_region_pieceatr(hive->selectedRegion,
+				NULL, move->from);
+		hive_region_removepiece(hive->selectedRegion,
+				hive->selectedPiece);
+		hive->selectedPiece->position = move->to;
+		hive_region_addpiece(&hive->board, hive->selectedPiece);
+		hive->turn = hive->turn == HIVE_WHITE ? HIVE_BLACK : HIVE_WHITE;
+		for (size_t i = 0; i < hive->board.numPieces; i++) {
+			HivePiece *const piece = hive->board.pieces[i];
+			piece->flags &= ~HIVE_IMMOBILE;
+		}
+		/* this happens when a beetle just moved a piece */
+		if (hive->actor != NULL)
+			hive->selectedPiece->flags |= HIVE_IMMOBILE;
+		hive_move_list_push(&hive->history, move);
+		if (!hive_hasanymoves(hive))
+			hive->turn = hive->turn == HIVE_WHITE ? HIVE_BLACK :
+				HIVE_WHITE;
+	}
+	hive_selectpiece(hive, NULL, NULL);
 }
 
 static bool hive_transferpiece(Hive *hive, HiveRegion *region, Point pos)

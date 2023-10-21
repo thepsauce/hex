@@ -11,6 +11,7 @@ static const char *typeNames[] = {
 
 	[NET_REQUEST_HIVE_CHALLENGE] = "HCH",
 	[NET_REQUEST_HIVE_MOVE] = "HMV",
+	[NET_REQUEST_HIVE_RESET] = "HRT",
 };
 
 bool net_isvalidname(const char *name)
@@ -105,6 +106,7 @@ const char *net_request_serialize(const NetRequest *req)
 			typeNames[req->type]);
 	switch(req->type) {
 	case NET_REQUEST_HIVE_CHALLENGE:
+	case NET_REQUEST_HIVE_RESET:
 		break;
 	case NET_REQUEST_MSG:
 		strcpy(data + n, req->name);
@@ -156,6 +158,7 @@ int net_request_deserialize(NetRequest *req, const char *data)
 	req->type = type;
 	switch (type) {
 	case NET_REQUEST_HIVE_CHALLENGE:
+	case NET_REQUEST_HIVE_RESET:
 		break;
 	case NET_REQUEST_MSG:
 		for (i = 0; isalpha(data[i]); i++) {
