@@ -24,25 +24,6 @@ bool net_isvalidname(const char *name)
 	return n >= NET_MIN_NAME;
 }
 
-int net_porthash(const char *name)
-{
-	int port = 20101;
-	int pat = 77;
-
-	for (; *name != '\0'; name++) {
-		port ^= pat | *name;
-		pat <<= 1;
-		pat ^= *name;
-	}
-	if (port == 0)
-		return 16623;
-	while (port < 10000)
-		port *= 10;
-	while (port > 60000)
-		port /= 2;
-	return port;
-}
-
 int net_request_vinit(NetRequest *req, net_request_type_t type, va_list lorig)
 {
 	va_list l;

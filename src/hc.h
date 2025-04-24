@@ -32,3 +32,4 @@ int hc_notifymove(void *ptr, const HiveMove *move);
 bool hc_isplayer(void *ptr, int player);
 /* used when a notification was received */
 int hc_domove(void *ptr, const char *move);
+void hc_notifygamestart(void *ptr);

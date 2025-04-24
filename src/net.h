@@ -1,12 +1,13 @@
-#include <pthread.h>
+#include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <poll.h>
+#include <pthread.h>
 #include <stdarg.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
-#include <fcntl.h>
-#include <arpa/inet.h>
-#include <poll.h>
+#include <sys/types.h>
 
 #define NET_USER_DATA_SIZE 1024
 #define NET_EXTRA_SIZE 512
@@ -16,7 +17,6 @@
 #define NET_MAX_NAME 32
 
 bool net_isvalidname(const char *name);
-int net_porthash(const char *name);
 
 /* Request format:
  * [second].[nano seconds] [type]:[data]\r

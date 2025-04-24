@@ -18,8 +18,8 @@ static const struct chat_cmd {
 	{ "help", "", "show this help", net_chat_help, false },
 	{ "clear", "", "clear the chat window", net_chat_clear, false },
 	{ "setname", "[name]", "set your user name or the server name", net_chat_setname, true },
-	{ "host", "[name]", "start a server", net_chat_host, true },
-	{ "join", "[ip] [name]", "join a server", net_chat_join, true },
+	{ "host", "[port]", "start a server", net_chat_host, true },
+	{ "join", "[ip/domain] [port]", "join a server", net_chat_join, true },
 	{ "leave", "", "leave the current network", net_chat_leave, true },
 	{ "challenge", "", "make a challenge or accept a challenge", net_chat_challenge, true },
 };
@@ -153,7 +153,6 @@ static void *net_chat_host(void *arg)
 		goto end;
 	}
 	name = args;
-	strcpy(chat->name, name);
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0 ||
 			net_receiver_init(&chat->net, sock, true) < 0) {
 		close(sock);
@@ -163,7 +162,7 @@ static void *net_chat_host(void *arg)
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
-	port = net_porthash(name);
+	port = strtol(name, NULL, 10);
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
 	addr.sin_port = htons(port);
@@ -302,12 +301,15 @@ static void *net_chat_join(void *arg)
 {
 	NetChatJob *const job = (NetChatJob*) arg;
 	NetChat *const chat = (NetChat*) job->chat;
-	const char *ip, *name;
+	const char *ip, *strPort;
 	int port;
 	int sock;
 	struct sockaddr_in addr;
 	NetRequest req;
 	struct net_entry *ent;
+
+	struct addrinfo hints, *result;
+	struct sockaddr_in *resolvedAddr;
 
 	if (chat->net.socket > 0) {
 		pthread_mutex_lock(&chat->output.lock);
@@ -317,8 +319,8 @@ static void *net_chat_join(void *arg)
 		goto end;
 	}
 	ip = job->args;
-	name = ip + strlen(ip) + 1;
-	port = net_porthash(name);
+	strPort = ip + strlen(ip) + 1;
+	port = strtol(strPort, NULL, 10);
 
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0 ||
 			net_receiver_init(&chat->net, sock, false) < 0) {
@@ -332,33 +334,47 @@ static void *net_chat_join(void *arg)
 	}
 	pthread_mutex_lock(&chat->output.lock);
 	wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
-	wprintw(chat->output.win, "Trying to connect to %s:%d (%s)...\n", ip, port, name);
+	wprintw(chat->output.win, "Trying to connect to %s:%d...\n", ip, port);
 	pthread_mutex_unlock(&chat->output.lock);
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
-	if (inet_pton(AF_INET, ip, &addr.sin_addr) <= 0) {
-		const int err = errno;
-		net_receiver_uninit(&chat->net);
-		pthread_mutex_lock(&chat->output.lock);
-		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
-		wprintw(chat->output.win, "Unable to read ip address '%s': %s\n",
-				ip, err == 0 ? "invalid format" : strerror(err));
-		pthread_mutex_unlock(&chat->output.lock);
-		goto end;
+
+	const int status = getaddrinfo(ip, NULL, &hints, &result);
+	if (status != 0) {
+		if (inet_pton(AF_INET, ip, &addr.sin_addr) <= 0) {
+			const int err = errno;
+			net_receiver_uninit(&chat->net);
+			pthread_mutex_lock(&chat->output.lock);
+			wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
+			wprintw(chat->output.win, "Unable to read address '%s': %s\n",
+					ip, err == 0 ? "invalid format" : strerror(err));
+			pthread_mutex_unlock(&chat->output.lock);
+			goto end;
+		}
+	} else {
+		resolvedAddr = (struct sockaddr_in*) result->ai_addr;
+		addr.sin_addr = resolvedAddr->sin_addr;
+		freeaddrinfo(result);
 	}
+
 	if (connect(sock, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
 		net_receiver_uninit(&chat->net);
 		pthread_mutex_lock(&chat->output.lock);
 		wattr_set(chat->output.win, 0, PAIR_ERROR, NULL);
 		wprintw(chat->output.win,
-				"Unable to connect to the server %s:%d (%s): %s\n",
-				ip, port, name, strerror(errno));
+				"Unable to connect to the server %s:%d: %s\n",
+				ip, port, strerror(errno));
 		pthread_mutex_unlock(&chat->output.lock);
 		goto end;
 	}
 	pthread_mutex_lock(&chat->output.lock);
 	wattr_set(chat->output.win, 0, PAIR_INFO, NULL);
-	wprintw(chat->output.win, "Joined server %s!\n", name);
+	wprintw(chat->output.win, "Joined server %s:%d!\n", ip, port);
 	pthread_mutex_unlock(&chat->output.lock);
 
 	net_receiver_sendany(&chat->net, 0, NET_REQUEST_SUN, chat->name);
